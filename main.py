@@ -36,7 +36,7 @@ def main(mode):
             mins, n24 = yt.upload_stats(a0)
             if mins is not None and mins < 150:
                 log(f"SKIP: last upload {mins:.0f} min ago (slot already done)"); return
-            if n24 >= 6:
+            if n24 >= 12:
                 log(f"SKIP: already {n24} uploads in last 24h (daily cap)"); return
         except Exception as ex: log("upload-guard check failed, continuing:", str(ex)[:120])
     try:
