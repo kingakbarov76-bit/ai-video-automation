@@ -29,6 +29,8 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/": return self.send("ok")
         if u.path == "/run": return self.send(start("run"))
         if u.path == "/check": return self.send(start("check"))
+        if u.path == "/brand": return self.send(start("brand"))
+        if u.path == "/ai": return self.send(start("ai"))
         if u.path == "/status":
             txt = open("logs/last_run.txt").read() if os.path.exists("logs/last_run.txt") else "no run yet"
             return self.send(f"running={STATE['running']}\n{txt}")

@@ -45,3 +45,40 @@ def build_video(images, hook, out_path, workdir, per=4.0, seed=0, log=print):
          "-filter_complex", "[0:v][2:v]overlay=0:0:enable='between(t,0,5)'[v]", "-map", "[v]", "-map", "1:a",
          "-c:v", "libx264", "-preset", "ultrafast", "-crf", "24", "-threads", "1", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k", "-shortest", out_path])
     return out_path
+
+
+def cap_overlay(path, text, y_top=None, big=False):
+    im = Image.new("RGBA", (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(im); f = _font(54 if not big else 70)
+    lines, c = [], ""
+    for w in text.split():
+        x = (c + " " + w).strip()
+        if d.textlength(x, font=f) <= W - 100: c = x
+        else: lines.append(c); c = w
+    lines.append(c); y = y_top if y_top is not None else int(H * 0.72)
+    for l in lines:
+        x = (W - d.textlength(l, font=f)) / 2
+        for dx, dy in ((-3, 0), (3, 0), (0, -3), (0, 3), (-2, -2), (2, 2), (-2, 2), (2, -2)):
+            d.text((x + dx, y + dy), l, font=f, fill=(0, 0, 0, 255))
+        d.text((x, y), l, font=f, fill=(255, 255, 255, 255)); y += 70
+    im.save(path)
+
+def build_stock_video(clip_files, hook, captions, out_path, workdir, per=4.0, seed=0, log=print):
+    os.makedirs(workdir, exist_ok=True); clips = []
+    for i, src in enumerate(clip_files):
+        ov = f"{workdir}/cap{i}.png"
+        if i == 0:
+            hook_overlay(ov, hook)
+        else:
+            cap_overlay(ov, captions[(i - 1) % len(captions)])
+        c = f"{workdir}/clip{i}.mp4"
+        vf = (f"[0:v]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps={FPS},eq=saturation=1.25:contrast=1.05,"
+              f"setsar=1,format=yuv420p[a];[a][1:v]overlay=0:0,fade=t=in:st=0:d=0.25,fade=t=out:st={per-0.25}:d=0.25[v]")
+        run(["ffmpeg", "-y", "-loglevel", "error", "-ss", "0.5", "-t", str(per), "-i", src, "-i", ov, "-filter_complex", vf, "-map", "[v]", "-an",
+             "-r", str(FPS), "-c:v", "libx264", "-preset", "ultrafast", "-crf", "24", "-threads", "1", c])
+        clips.append(c); log(f"clip {i+1}/{len(clip_files)} done")
+    lst = f"{workdir}/list.txt"
+    open(lst, "w").write("".join(f"file '{os.path.abspath(c)}'\n" for c in clips))
+    dur = per * len(clips); wav = f"{workdir}/a.wav"; make_pad(wav, dur, seed)
+    run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-i", wav, "-map", "0:v", "-map", "1:a",
+         "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-shortest", out_path])
+    return out_path
