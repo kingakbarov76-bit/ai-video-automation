@@ -39,11 +39,14 @@ def main(mode):
                    "All visuals are AI-generated and not real photographs.\n#AIart #relaxing #shorts #dreamy")
     vid, privacy = yt.upload(access, out, title, description, ["AI art", "relaxing", "shorts", "landscape"])
     log("uploaded:", vid, "privacy:", privacy)
-if __name__ == "__main__":
-    mode = sys.argv[1] if len(sys.argv) > 1 else "run"
+def execute(mode="run"):
+    lines.clear()
     try:
         main(mode); log("RESULT: OK")
     except BaseException as e:
         log("RESULT: FAIL", type(e).__name__, str(e)[:500]); log(traceback.format_exc()[-600:])
     finally:
         save()
+    return "\n".join(lines)
+if __name__ == "__main__":
+    execute(sys.argv[1] if len(sys.argv) > 1 else "run")
