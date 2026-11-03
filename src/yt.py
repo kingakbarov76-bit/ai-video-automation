@@ -41,3 +41,19 @@ def brand(access, description, keywords, banner_png):
                       data=json.dumps(body), timeout=60)
     res.append(f"channel update HTTP {ru.status_code}" + ("" if ru.status_code == 200 else ": " + ru.text[:300]))
     return "; ".join(res)
+
+def my_videos_stats(access, limit=50):
+    h = {"Authorization": f"Bearer {access}"}
+    r = requests.get("https://www.googleapis.com/youtube/v3/channels", headers=h, params={"part": "contentDetails", "mine": "true"}, timeout=30)
+    r.raise_for_status()
+    up = r.json()["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
+    r = requests.get("https://www.googleapis.com/youtube/v3/playlistItems", headers=h, params={"part": "contentDetails", "playlistId": up, "maxResults": limit}, timeout=30)
+    r.raise_for_status(); ids = [i["contentDetails"]["videoId"] for i in r.json().get("items", [])]
+    if not ids: return []
+    r = requests.get("https://www.googleapis.com/youtube/v3/videos", headers=h, params={"part": "snippet,statistics", "id": ",".join(ids)}, timeout=30)
+    r.raise_for_status(); out = []
+    for v in r.json().get("items", []):
+        st = v.get("statistics", {}); sn = v["snippet"]
+        out.append({"id": v["id"], "title": sn.get("title", ""), "published": sn.get("publishedAt", ""), "description": sn.get("description", ""),
+                    "views": int(st.get("viewCount", 0)), "likes": int(st.get("likeCount", 0)), "comments": int(st.get("commentCount", 0))})
+    return out

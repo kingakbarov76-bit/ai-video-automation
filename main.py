@@ -1,5 +1,5 @@
 import os, sys, datetime, traceback
-from src import scenes, cf_images, render, yt, stock, captions
+from src import scenes, cf_images, render, yt, stock, captions, analyze
 LOG = "logs/last_run.txt"
 lines = []
 def log(*a):
@@ -17,18 +17,30 @@ def _mk(work, i):
     os.makedirs(work, exist_ok=True); return f"{work}/s{i}.mp4"
 def main(mode):
     _now = datetime.datetime.utcnow()
-    day = (_now.date() - datetime.date(2026, 1, 1)).days * 4 + _now.hour // 6  # four slots per day
+    day = (_now.date() - datetime.date(2026, 1, 1)).days * 6 + _now.hour // 4  # six slots per day
     acc, tok = env("CF_ACCOUNT_ID"), env("CF_API_TOKEN")
     log("cloudflare verify:", *cf_images.verify(acc, tok))
+    if mode == "analyze":
+        a = yt.access_token(env("GOOGLE_CLIENT_ID"), env("GOOGLE_CLIENT_SECRET"), env("YT_REFRESH_TOKEN"))
+        vids = yt.my_videos_stats(a); w, summ, top = analyze.run(vids, [t[0] for t in stock.THEMES])
+        log("ANALYSIS:", summ)
+        for v in vids[:20]: log(f"  {v['id']} views={v['views']} likes={v['likes']} | {v['title'][:50]}")
+        return
     if mode == "check":
         names, clips = stock.pick_multi(day, 13, log)
         log("themes:", names, "| first clip:", clips[0]["src"] if clips else None); return
     os.makedirs("out", exist_ok=True); out = "out/video.mp4"; work = "out/work"
-    use_ai = (day % 8 == 7) or mode == "ai"
+    use_ai = (day % 12 == 11) or mode == "ai"
     synthetic = True; credits = ""
     hook = scenes.HOOKS[day % len(scenes.HOOKS)]
     if not use_ai:
-        names, clips = stock.pick_multi(day, 18, log)
+        weights = None
+        try:
+            acc_tok = yt.access_token(env("GOOGLE_CLIENT_ID"), env("GOOGLE_CLIENT_SECRET"), env("YT_REFRESH_TOKEN"))
+            weights, summ, top = analyze.run(yt.my_videos_stats(acc_tok), [t[0] for t in stock.THEMES])
+            log("ANALYSIS:", summ); [log("  top:", t) for t in top]
+        except Exception as ex: log("analysis skipped:", str(ex)[:120])
+        names, clips = stock.pick_multi(day, 18, log, weights=weights)
         files = []
         for i, c in enumerate(clips):
             if len(files) >= 13: break

@@ -60,7 +60,7 @@ def download(c, path):
 
 HOOK_QUERIES = ["woman arms wide nature", "person standing looking at mountain view", "woman walking autumn forest", "girl in flower field", "person overlooking valley"]
 GENERIC = ["colorful landscape aerial", "vibrant nature drone", "scenic road aerial", "unreal landscape"]
-def pick_multi(day, n, log=print, max_mb=30):
+def pick_multi(day, n, log=print, max_mb=30, weights=None):
     rnd = random.Random(day * 7 + 3)
     pexels, pixabay = os.environ.get("PEXELS_API_KEY", ""), os.environ.get("PIXABAY_API_KEY", "")
     out, seen, names = [], set(), []
@@ -75,7 +75,10 @@ def pick_multi(day, n, log=print, max_mb=30):
                     seen.add(c["id"]); out.append(dict(c, src=src, q=q)); got += 1
         return got
     grab(rnd.choice(HOOK_QUERIES), 1)
-    order = list(range(len(THEMES))); rnd.shuffle(order)
+    idx = list(range(len(THEMES))); order = []
+    w = {i: (weights or {}).get(THEMES[i][0], 1.0) for i in idx}
+    while idx:  # weighted random order: better themes come first more often
+        pick = rnd.choices(idx, weights=[w[i] for i in idx])[0]; order.append(pick); idx.remove(pick)
     for ti in order:
         if len(out) >= n: break
         name, qs = THEMES[ti]
