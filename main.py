@@ -103,7 +103,11 @@ def do_brand():
 def execute(mode="run"):
     lines.clear()
     try:
-        (do_brand if mode == "brand" else main)(*([] if mode == "brand" else [mode])); log("RESULT: OK")
+        if mode == "musictest":
+            from src import music; music.test(log)
+        else:
+            (do_brand if mode == "brand" else main)(*([] if mode == "brand" else [mode]))
+        log("RESULT: OK")
     except BaseException as e:
         log("RESULT: FAIL", type(e).__name__, str(e)[:500]); log(traceback.format_exc()[-600:])
     finally:

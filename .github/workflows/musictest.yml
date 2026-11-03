@@ -1,0 +1,13 @@
+name: music-test
+on:
+  push:
+    branches: [main]
+    paths: [".github/triggers/musictest"]
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          sleep 170
+          for i in 1 2 3 4 5; do out=$(curl -s -m 90 https://yt-auto-shorts.onrender.com/musictest) && echo "$out" && break; sleep 30; done

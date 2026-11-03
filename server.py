@@ -17,7 +17,8 @@ def start(mode):
     with LOCK:
         if STATE["running"]: return "already running"
         if mode == "run" and time.time() - STATE["last_start"] < 3 * 3600: return "skipped (ran within last 3h)"
-        STATE.update(running=True, last_start=time.time(), last_mode=mode)
+        STATE.update(running=True, last_mode=mode)
+        if mode == "run": STATE["last_start"] = time.time()
     threading.Thread(target=runner, args=(mode,), daemon=True).start()
     return "started " + mode
 class H(BaseHTTPRequestHandler):
@@ -33,6 +34,12 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/analyze": return self.send(start("analyze"))
         if u.path == "/brand": return self.send(start("brand"))
         if u.path == "/ai": return self.send(start("ai"))
+        if u.path == "/musictest": return self.send(start("musictest"))
+        if u.path == "/music.mp3":
+            p = "out/music_test.mp3"
+            if not os.path.exists(p): return self.send("hali yo'q", 404)
+            b = open(p, "rb").read(); self.send_response(200); self.send_header("Content-Type", "audio/mpeg")
+            self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b); return
         if u.path == "/status":
             txt = open("logs/last_run.txt").read() if os.path.exists("logs/last_run.txt") else "no run yet"
             return self.send(f"running={STATE['running']}\n{txt}")
