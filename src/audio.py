@@ -65,3 +65,17 @@ def make_beat(path, dur, bpm=116.13, seed=0):
     st = np.stack([out, np.roll(out, 90)], 1)
     w = wave.open(path, "wb"); w.setnchannels(2); w.setsampwidth(2); w.setframerate(sr)
     w.writeframes((st * 32767).astype(np.int16).tobytes()); w.close()
+
+def from_track(src, out_wav, dur, seed=0, bpm=116.0):
+    """Cut a bar-aligned segment from a music file, fade, loudness-normalize to about -14 LUFS."""
+    import subprocess, random
+    p = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", src], capture_output=True, text=True)
+    total = float(p.stdout.strip() or 0); bar = 4 * 60.0 / bpm
+    max_k = int(max(0, total - dur - 1) // bar)
+    k = random.Random(seed).randint(min(2, max_k), max_k) if max_k > 0 else 0
+    start = k * bar
+    af = f"afade=t=in:st=0:d=0.15,afade=t=out:st={max(0, dur - 0.8):.2f}:d=0.8,loudnorm=I=-14:TP=-1.5:LRA=11"
+    r = subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{start:.3f}", "-t", f"{dur:.3f}", "-i", src, "-af", af,
+                        "-ar", "44100", "-ac", "2", out_wav], capture_output=True, text=True)
+    if r.returncode: raise RuntimeError(r.stderr[-300:])
+    return out_wav

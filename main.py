@@ -30,6 +30,11 @@ def main(mode):
         names, clips = stock.pick_multi(day, 13, log)
         log("themes:", names, "| first clip:", clips[0]["src"] if clips else None); return
     os.makedirs("out", exist_ok=True); out = "out/video.mp4"; work = "out/work"
+    try:
+        from src import music
+        music.maybe_generate_daily(log)
+        render.MUSIC_SRC = music.pick_track(day, "out/work", log)
+    except Exception as ex: log("music step skipped:", str(ex)[:120]); render.MUSIC_SRC = None
     use_choose = (day % 6 == 3) or mode == "choose"
     use_ai = ((day % 3 == 2) or mode == "ai") and not use_choose
     synthetic = True; credits = ""
@@ -87,8 +92,8 @@ def main(mode):
              else f"{title_base} 😍 #AIart #nature #travel #dreamy")[:100]
     description = (("#travel #nature #places\n" if not (use_ai or use_choose) else "#AIart #dreamplaces #travel\n") + ("Comment your number: which place would you choose? 👇\n" if use_choose else "") +
                    f"Places on Earth that don't feel real. Which one is your favorite? Tell me in the comments!\n"
-                   f"Featuring: {theme}.\n{credits}\nFollow for a new unreal place every day.\n"
-                   "#shorts #beautifulplaces #scenery #earth #adventure #aesthetic")
+                   f"Featuring: {theme}.\n{credits}\nFollow for a new unreal place every day.\n" +
+                   ("Music: original AI-generated track.\n" if render.MUSIC_SRC else "") + "#shorts #beautifulplaces #scenery #earth #adventure #aesthetic")
     synthetic = synthetic or use_choose or use_ai
     vid, privacy = yt.upload(access, out, title, description, ["places on earth that don't feel real", "unreal places", "most beautiful places", "travel", "nature", "scenery", "satisfying", "aesthetic", "shorts"], synthetic=synthetic)
     log("uploaded:", vid, "privacy:", privacy, "| title:", title)

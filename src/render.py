@@ -2,6 +2,7 @@ import os, subprocess, shutil
 from PIL import Image, ImageDraw, ImageFont
 from .audio import make_pad
 W, H, FPS = 720, 1280, 30
+MUSIC_SRC = None  # set by main: path to a library track; None = built-in synth
 def _font(size):
     for p in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"):
         if os.path.exists(p): return ImageFont.truetype(p, size)
@@ -124,7 +125,7 @@ def build_beat_video(clip_files, line1, line2, outro, out_path, workdir, bpm=116
         clips.append(c); log(f"clip {i+1}/{len(clip_files)} done")
     lst = f"{workdir}/list.txt"
     open(lst, "w").write("".join(f"file '{os.path.abspath(c)}'\n" for c in clips))
-    dur = (93 + 31 * (len(clips) - 2) + 46) / FPS; wav = f"{workdir}/a.wav"; make_beat(wav, dur, bpm, seed)
+    dur = (93 + 31 * (len(clips) - 2) + 46) / FPS; wav = f"{workdir}/a.wav"; _music(wav, dur, bpm, seed, log)
     run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-i", wav, "-map", "0:v", "-map", "1:a",
          "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", out_path])
     return out_path
@@ -187,11 +188,18 @@ def build_beat_video2(clip_files, hook, captions, badge, out_path, workdir, bpm=
         run(cmd + ["-frames:v", str(frames), "-an", "-r", str(FPS)] + enc + [c])
         clips.append(c); log(f"clip {i+1}/{len(clip_files)} done")
     lst = f"{workdir}/list.txt"; open(lst, "w").write("".join(f"file '{os.path.abspath(c)}'\n" for c in clips))
-    dur = (93 + 31 * (len(clips) - 2) + 46) / FPS; wav = f"{workdir}/a.wav"; make_beat(wav, dur, bpm, seed)
+    dur = (93 + 31 * (len(clips) - 2) + 46) / FPS; wav = f"{workdir}/a.wav"; _music(wav, dur, bpm, seed, log)
     run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-i", wav, "-map", "0:v", "-map", "1:a",
          "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", out_path])
     return out_path
 
+
+def _music(wav, dur, bpm, seed, log=print):
+    from .audio import make_beat, from_track
+    if MUSIC_SRC:
+        try: from_track(MUSIC_SRC, wav, dur, seed); return
+        except Exception as e: log("track cut failed, built-in used:", str(e)[:120])
+    make_beat(wav, dur, bpm, seed)
 
 def _pill(d, text, f, cx, y, fill=(0, 0, 0, 120)):
     tw = d.textlength(text, font=f); x = cx - tw / 2
@@ -234,6 +242,6 @@ def build_choice_video(imgs, names, out_path, workdir, question="Which place wou
     run(["ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-t", "2", "-framerate", str(FPS), "-i", gp, "-frames:v", "60", "-vf", f"fps={FPS},format=yuv420p",
          "-an", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "22", "-threads", "1", c]); clips.append(c)
     lst = f"{workdir}/list.txt"; open(lst, "w").write("".join(f"file '{os.path.abspath(x)}'\n" for x in clips))
-    wav = f"{workdir}/a.wav"; make_beat(wav, 16.0, 116.13, seed)
+    wav = f"{workdir}/a.wav"; _music(wav, 16.0, 116.13, seed, log)
     run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-i", wav, "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", out_path])
     return out_path
