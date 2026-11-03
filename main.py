@@ -28,9 +28,10 @@ def main(mode):
     synthetic = True; credits = ""
     hook = scenes.HOOKS[day % len(scenes.HOOKS)]
     if not use_ai:
-        names, clips = stock.pick_multi(day, 13, log)
+        names, clips = stock.pick_multi(day, 18, log)
         files = []
         for i, c in enumerate(clips):
+            if len(files) >= 13: break
             try: files.append(stock.download(c, f"{work}/s{i}.mp4" if os.path.isdir(work) else _mk(work, i)))
             except Exception as ex: log(f"download {i} failed: {str(ex)[:80]}")
         if len(files) >= 9:
