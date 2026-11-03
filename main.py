@@ -23,7 +23,7 @@ def slot_info(now=None):
     h = loc.hour; d = loc.date()
     if h < 4: d -= datetime.timedelta(days=1)
     k = 0 if 4 <= h < 12 else (1 if 12 <= h < 20 else 2)
-    return (d - EPOCH).days * 3 + k, k, h in SLOT_HOURS
+    return max(0, (d - EPOCH).days * 3 + k), k, h in SLOT_HOURS
 FOOTER = "#shorts #placesthatdontfeelreal #beautifulplaces #travel #nature"
 def music_line():
     return ("Music: original AI-generated track (ACE-Step 1.5)." if render.MUSIC_SRC else "Music: original track made for this channel.")
