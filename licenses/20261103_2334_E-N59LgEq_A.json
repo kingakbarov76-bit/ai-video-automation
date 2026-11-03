@@ -1,0 +1,109 @@
+{
+ "video": "E-N59LgEq_A",
+ "title": "Places on Earth that don't feel real 🤯 #travel #nature #earth",
+ "music": "built-in synth",
+ "items": [
+  {
+   "place": "Lapland",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px29708710",
+     "page": "https://www.pexels.com/video/stunning-aerial-winter-landscape-in-lapland-29708710/",
+     "author": "Sergey Guk"
+    },
+    {
+     "src": "pexels",
+     "id": "px34941888",
+     "page": "https://www.pexels.com/video/majestic-reindeer-herd-in-snowy-lapland-34941888/",
+     "author": "Sergey Guk"
+    }
+   ]
+  },
+  {
+   "place": "Monument Valley, USA",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px28879135",
+     "page": "https://www.pexels.com/video/scenic-monument-valley-view-during-daylight-28879135/",
+     "author": "Sergey Guk"
+    },
+    {
+     "src": "pexels",
+     "id": "px30271661",
+     "page": "https://www.pexels.com/video/majestic-aerial-view-of-monument-valley-30271661/",
+     "author": "Chrystofer Santana"
+    }
+   ]
+  },
+  {
+   "place": "Machu Picchu, Peru",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px32001018",
+     "page": "https://www.pexels.com/video/stunning-machu-picchu-ancient-ruins-32001018/",
+     "author": "James Seguil"
+    },
+    {
+     "src": "pexels",
+     "id": "px34533157",
+     "page": "https://www.pexels.com/video/machu-picchu-ancient-inca-ruins-in-clouds-34533157/",
+     "author": "Alejandro Varela"
+    }
+   ]
+  },
+  {
+   "place": "Mount Bromo, Indonesia",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px30700896",
+     "page": "https://www.pexels.com/video/majestic-view-of-mount-bromo-at-sunrise-30700896/",
+     "author": "muhammad fadhil"
+    },
+    {
+     "src": "pexels",
+     "id": "px30703585",
+     "page": "https://www.pexels.com/video/majestic-sunrise-over-mount-bromo-indonesia-30703585/",
+     "author": "muhammad fadhil"
+    }
+   ]
+  },
+  {
+   "place": "Lofoten Islands, Norway",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px35466391",
+     "page": "https://www.pexels.com/video/scenic-aerial-view-of-lofoten-coastline-35466391/",
+     "author": "Deek Van der aa"
+    },
+    {
+     "src": "pexels",
+     "id": "px35466636",
+     "page": "https://www.pexels.com/video/aerial-view-of-scenic-fjord-in-lofoten-35466636/",
+     "author": "Deek Van der aa"
+    }
+   ]
+  },
+  {
+   "place": "Trolltunga, Norway",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px33330066",
+     "page": "https://www.pexels.com/video/epic-aerial-view-of-norway-s-trolltunga-fjord-33330066/",
+     "author": "Sergey Guk"
+    },
+    {
+     "src": "pexels",
+     "id": "px33330096",
+     "page": "https://www.pexels.com/video/epic-view-of-norway-s-iconic-trolltunga-cliff-33330096/",
+     "author": "Sergey Guk"
+    }
+   ]
+  }
+ ]
+}
