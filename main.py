@@ -30,10 +30,18 @@ def main(mode):
         names, clips = stock.pick_multi(day, 13, log)
         log("themes:", names, "| first clip:", clips[0]["src"] if clips else None); return
     os.makedirs("out", exist_ok=True); out = "out/video.mp4"; work = "out/work"
-    use_ai = (day % 3 == 2) or mode == "ai"
+    use_choose = (day % 6 == 3) or mode == "choose"
+    use_ai = ((day % 3 == 2) or mode == "ai") and not use_choose
     synthetic = True; credits = ""
     hook = scenes.HOOKS[day % len(scenes.HOOKS)]
-    if not use_ai:
+    if use_choose:
+        ch = aiplaces.pick_choices(day, 4); imgs = []
+        for i, (nm, pr) in enumerate(ch):
+            imgs.append(cf_images.generate(acc, tok, pr)); log(f"choice image {i+1}/4 ok")
+        render.build_choice_video(imgs, [n for n, _ in ch], out, work, seed=day, log=log)
+        title_base = "Which place would you stay in?"; theme = ", ".join(n for n, _ in ch)
+        credits = "All visuals are AI-generated and not real places."
+    if not use_ai and not use_choose:
         weights = None
         try:
             acc_tok = yt.access_token(env("GOOGLE_CLIENT_ID"), env("GOOGLE_CLIENT_SECRET"), env("YT_REFRESH_TOKEN"))
@@ -56,7 +64,7 @@ def main(mode):
             title_base = stock.TITLES[day % len(stock.TITLES)]
         else:
             log("not enough stock clips, falling back to AI images"); use_ai = True
-    if use_ai:
+    if use_ai and not use_choose:
         prompts = aiplaces.pick(day, 13); os.makedirs(work, exist_ok=True); clipf = []
         for i, pr in enumerate(prompts):
             img = cf_images.generate(acc, tok, pr); clipf.append(render.image_to_clip(img, f"{work}/aic{i}.mp4", work, i)); log(f"image {i+1}/13 ok")
@@ -67,12 +75,14 @@ def main(mode):
         credits = "All visuals are AI-generated and not real places."
     log("video built", os.path.getsize(out), "bytes")
     access = yt.access_token(env("GOOGLE_CLIENT_ID"), env("GOOGLE_CLIENT_SECRET"), env("YT_REFRESH_TOKEN"))
-    title = (f"Places on earth that don't feel real {['😱','🤯','😍'][day % 3]} #travel #nature #world #adventure" if not use_ai
+    title = (f"Which place would you stay in? 🤔 #AIart #travel #dreamplaces #nature" if use_choose else
+             f"Places on earth that don't feel real {['😱','🤯','😍'][day % 3]} #travel #nature #world #adventure" if not use_ai
              else f"{title_base} 😍 #AIart #nature #travel #dreamy")[:100]
-    description = (("#travel #nature #places\n" if not use_ai else "#AIart #aiplaces #dreamy\n") +
+    description = (("#travel #nature #places\n" if not (use_ai or use_choose) else "#AIart #dreamplaces #travel\n") + ("Comment your number: which place would you choose? 👇\n" if use_choose else "") +
                    f"Places on Earth that don't feel real. Which one is your favorite? Tell me in the comments!\n"
                    f"Featuring: {theme}.\n{credits}\nFollow for a new unreal place every day.\n"
                    "#shorts #beautifulplaces #scenery #earth #adventure #aesthetic")
+    synthetic = synthetic or use_choose or use_ai
     vid, privacy = yt.upload(access, out, title, description, ["places on earth that don't feel real", "unreal places", "most beautiful places", "travel", "nature", "scenery", "satisfying", "aesthetic", "shorts"], synthetic=synthetic)
     log("uploaded:", vid, "privacy:", privacy, "| title:", title)
 def do_brand():

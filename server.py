@@ -29,6 +29,7 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/": return self.send("ok")
         if u.path == "/run": return self.send(start("run"))
         if u.path == "/check": return self.send(start("check"))
+        if u.path == "/choose": return self.send(start("choose"))
         if u.path == "/analyze": return self.send(start("analyze"))
         if u.path == "/brand": return self.send(start("brand"))
         if u.path == "/ai": return self.send(start("ai"))

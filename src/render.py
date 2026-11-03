@@ -187,3 +187,49 @@ def build_beat_video2(clip_files, hook, captions, badge, out_path, workdir, bpm=
     run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-i", wav, "-map", "0:v", "-map", "1:a",
          "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", out_path])
     return out_path
+
+
+def _pill(d, text, f, cx, y, fill=(0, 0, 0, 120)):
+    tw = d.textlength(text, font=f); x = cx - tw / 2
+    d.rounded_rectangle([x - 28, y - 12, x + tw + 28, y + int(f.size * 1.35)], radius=32, fill=fill)
+    d.text((x + 2, y + 2), text, font=f, fill=(0, 0, 0, 150)); d.text((x, y), text, font=f, fill=(255, 255, 255, 255))
+
+def choice_overlay(path, question, number, name):
+    im = Image.new("RGBA", (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    fq = _font(38); tw = d.textlength(question, font=fq)
+    for dx, dy in ((-3, 0), (3, 0), (0, -3), (0, 3), (-2, -2), (2, 2)): d.text(((W - tw) / 2 + dx, 150 + dy), question, font=fq, fill=(0, 0, 0, 255))
+    d.text(((W - tw) / 2, 150), question, font=fq, fill=(255, 226, 40, 255))
+    d.ellipse([40, 240, 170, 370], fill=(255, 255, 255, 235)); fn = _font(96); nw = d.textlength(str(number), font=fn)
+    d.text((105 - nw / 2, 252), str(number), font=fn, fill=(30, 30, 30, 255))
+    _pill(d, name, _font(44), W // 2, int(H * 0.80))
+    d.rounded_rectangle([W - 250, 36, W - 24, 82], radius=22, fill=(0, 0, 0, 110)); d.text((W - 230, 44), "AI-generated", font=_font(26), fill=(255, 255, 255, 235))
+    im.save(path)
+
+def build_choice_video(imgs, names, out_path, workdir, question="Which place would you stay in?", seed=0, log=print):
+    """4 options x 105 frames + 60-frame grid outro with 'Comment your number' = 480 frames (16s)."""
+    import io
+    from .audio import make_beat
+    os.makedirs(workdir, exist_ok=True); clips = []; frames_each = 105
+    for i, (data, name) in enumerate(zip(imgs, names)):
+        base = image_to_clip(data, f"{workdir}/ch{i}_raw.mp4", workdir, 20 + i, secs=frames_each / FPS + 0.1)
+        ov = f"{workdir}/chov{i}.png"; choice_overlay(ov, question, i + 1, name); c = f"{workdir}/chc{i}.mp4"
+        fc = "[0:v]eq=saturation=1.25:contrast=1.05[a];[a][1:v]overlay=0:0[v]"
+        run(["ffmpeg", "-y", "-loglevel", "error", "-i", base, "-i", ov, "-filter_complex", fc, "-map", "[v]", "-frames:v", str(frames_each), "-an",
+             "-r", str(FPS), "-c:v", "libx264", "-preset", "ultrafast", "-crf", "22", "-threads", "1", c]); clips.append(c); log(f"option {i+1} done")
+    g = Image.new("RGB", (W, H)); hw, hh = W // 2, H // 2; gd = ImageDraw.Draw(g)
+    for i, data in enumerate(imgs):
+        im = Image.open(io.BytesIO(data)).convert("RGB"); s = max(hw / im.width, hh / im.height); im = im.resize((int(im.width * s) + 1, int(im.height * s) + 1))
+        l, t = (im.width - hw) // 2, (im.height - hh) // 2; g.paste(im.crop((l, t, l + hw, t + hh)), ((i % 2) * hw, (i // 2) * hh))
+    ov = Image.new("RGBA", (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(ov); fn = _font(70)
+    for i in range(4):
+        cx, cy = (i % 2) * hw + 60, (i // 2) * hh + 60; d.ellipse([cx - 44, cy - 44, cx + 44, cy + 44], fill=(255, 255, 255, 235))
+        nw = d.textlength(str(i + 1), font=fn); d.text((cx - nw / 2, cy - 44), str(i + 1), font=fn, fill=(30, 30, 30, 255))
+    _pill(d, "Comment your number", _font(48), W // 2, H // 2 - 30, fill=(0, 0, 0, 170))
+    g = Image.alpha_composite(g.convert("RGBA"), ov).convert("RGB"); gp = f"{workdir}/grid.jpg"; g.save(gp, quality=95)
+    c = f"{workdir}/chgrid.mp4"
+    run(["ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-t", "2", "-framerate", str(FPS), "-i", gp, "-frames:v", "60", "-vf", f"fps={FPS},format=yuv420p",
+         "-an", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "22", "-threads", "1", c]); clips.append(c)
+    lst = f"{workdir}/list.txt"; open(lst, "w").write("".join(f"file '{os.path.abspath(x)}'\n" for x in clips))
+    wav = f"{workdir}/a.wav"; make_beat(wav, 16.0, 116.13, seed)
+    run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-i", wav, "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", out_path])
+    return out_path

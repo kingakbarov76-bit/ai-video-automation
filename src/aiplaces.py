@@ -34,3 +34,23 @@ def pick(day, n=13):
     return [f"{x}, {STYLE}" for x in items]
 FEEL_MID = ["Would you stay here?", "Imagine waking up here", "Which one would you visit?", "Could you live here?"]
 FEEL_END = ["Tag who you'd take here", "Save this for your next trip", "Send this to your travel buddy", "Tag your dream travel partner"]
+
+CHOICES = [
+ ("Glass dome cabin", "a cozy glass dome cabin among blooming pink cherry trees at sunset"),
+ ("Treehouse village", "a treehouse village hanging in giant ancient trees with warm lanterns at dusk"),
+ ("Floating island", "a floating island with waterfall and glowing trees above the clouds"),
+ ("Ice cave", "a crystal ice cave with glowing blue walls and warm golden light inside"),
+ ("Overwater bungalow", "an overwater glass bungalow above glowing turquoise coral water"),
+ ("Lavender cottage", "a tiny stone cottage in an endless lavender field at golden hour"),
+ ("Mushroom forest", "a glowing bioluminescent mushroom forest with a soft path winding between giant mushrooms"),
+ ("Waterfall pools", "waterfall flowing into floating hot spring pools in a mossy canyon"),
+ ("Mountain meadow", "a mountain meadow of wildflowers with a stone staircase leading up to the clouds"),
+ ("Maple tunnel house", "a wooden cabin at the end of a red maple tunnel with falling leaves"),
+ ("Bamboo retreat", "a bamboo forest retreat with fireflies and soft morning mist"),
+ ("Snow igloo lodge", "a glowing snow lodge under green northern lights"),
+ ("Cliffside tent", "a cozy glowing tent on a cliff above a sea of golden clouds"),
+ ("Lagoon island hut", "a tiny hut on a glowing turquoise lagoon island with palm trees"),
+]
+def pick_choices(day, n=4):
+    r = random.Random(day * 17 + 11); items = CHOICES[:]; r.shuffle(items)
+    return [(nm, f"{p}, {STYLE}") for nm, p in items[:n]]
