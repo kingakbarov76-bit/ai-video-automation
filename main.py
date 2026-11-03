@@ -13,28 +13,31 @@ def env(k):
     v = (os.environ.get(k) or _CFG.get(k) or "").strip()
     if not v: raise SystemExit(f"missing secret: {k}")
     return v
+def _mk(work, i):
+    os.makedirs(work, exist_ok=True); return f"{work}/s{i}.mp4"
 def main(mode):
     day = (datetime.date.today() - datetime.date(2026, 1, 1)).days
     acc, tok = env("CF_ACCOUNT_ID"), env("CF_API_TOKEN")
     log("cloudflare verify:", *cf_images.verify(acc, tok))
     if mode == "check":
-        stock_name, clips = stock.pick_clips(day, day, 4, log)
-        log("captions:", captions.make(stock_name, 4, log)); return
+        names, clips = stock.pick_multi(day, 15, log)
+        log("themes:", names, "| first clip:", clips[0]["src"] if clips else None); return
     os.makedirs("out", exist_ok=True); out = "out/video.mp4"; work = "out/work"
     use_ai = (day % 3 == 2) or mode == "ai"
     synthetic = True; credits = ""
     hook = scenes.HOOKS[day % len(scenes.HOOKS)]
     if not use_ai:
-        name, clips = stock.pick_clips(day, day, 4, log)
-        if len(clips) >= 3:
-            os.makedirs(work, exist_ok=True); files = []
-            for i, c in enumerate(clips):
-                files.append(stock.download(c, f"{work}/src{i}.mp4"))
-            caps = captions.make(name, 3, log)
-            render.build_stock_video(files, hook, caps, out, work, per=4.0, seed=day, log=log)
-            synthetic = False
-            credits = "Footage: " + ", ".join(sorted({c["credit"] for c in clips})) + " via Pexels/Pixabay."
-            title_base = stock.TITLES[day % len(stock.TITLES)]; theme = name
+        names, clips = stock.pick_multi(day, 15, log)
+        files = []
+        for i, c in enumerate(clips):
+            try: files.append(stock.download(c, f"{work}/s{i}.mp4" if os.path.isdir(work) else _mk(work, i)))
+            except Exception as ex: log(f"download {i} failed: {str(ex)[:80]}")
+        if len(files) >= 8:
+            line1 = stock.TITLES[day % len(stock.TITLES)].replace("Places on Earth That Don't Feel Real", "Places on Earth that don't feel real")
+            render.build_beat_video(files, line1, "Wait for the last one", "Follow for more", out, work, seed=day, log=log)
+            synthetic = False; theme = ", ".join(names[:4]) or "Nature"
+            credits = "Footage from " + ", ".join(sorted({c["credit"] for c in clips})[:8]) + " via Pexels and Pixabay."
+            title_base = stock.TITLES[day % len(stock.TITLES)]
         else:
             log("not enough stock clips, falling back to AI images"); use_ai = True
     if use_ai:
@@ -50,10 +53,12 @@ def main(mode):
         credits = "All visuals are AI-generated and not real photographs."
     log("video built", os.path.getsize(out), "bytes")
     access = yt.access_token(env("GOOGLE_CLIENT_ID"), env("GOOGLE_CLIENT_SECRET"), env("YT_REFRESH_TOKEN"))
-    title = f"{title_base}: {theme} #shorts"[:100]
-    description = (f"{hook}. {theme} in a calm 16 second escape.\n{credits}\n"
-                   "#travel #nature #adventure #shorts #places #earth")
-    vid, privacy = yt.upload(access, out, title, description, ["travel", "nature", "places on earth", "shorts", "scenery"], synthetic=synthetic)
+    title = (f"{title_base} 🤯" if not use_ai else f"{title_base}: {theme}")[:90] + " #shorts"
+    description = (("#travel #nature #places\n" if not use_ai else "#AIart #nature #places\n") +
+                   f"Places on Earth that don't feel real. Which one is your favorite? Tell me in the comments!\n"
+                   f"Featuring: {theme}.\n{credits}\nFollow for a new unreal place every day.\n"
+                   "#shorts #beautifulplaces #scenery #earth #adventure #aesthetic")
+    vid, privacy = yt.upload(access, out, title, description, ["places on earth that don't feel real", "unreal places", "most beautiful places", "travel", "nature", "scenery", "satisfying", "aesthetic", "shorts"], synthetic=synthetic)
     log("uploaded:", vid, "privacy:", privacy, "| title:", title)
 def do_brand():
     from src import art

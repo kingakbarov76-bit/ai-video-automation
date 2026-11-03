@@ -13,7 +13,7 @@ THEMES = [
  ("Mountain Lakes", ["mountain lake reflection", "alpine lake aerial"]),
  ("Terraced Fields", ["rice terraces", "green fields aerial"]),
 ]
-TITLES = ["Places on Earth That Don't Feel Real", "Most Beautiful Places on Earth", "Nature Looks Unreal Here", "Places That Look Like a Dream"]
+TITLES = ["Places on Earth That Don't Feel Real", "Places on Earth That Look Unreal", "Most Beautiful Places on Earth", "Unreal Places That Actually Exist", "Places on Earth That Don't Feel Real"]
 def _pexels(key, q, rnd):
     r = requests.get("https://api.pexels.com/videos/search", headers={"Authorization": key},
                      params={"query": q, "orientation": "portrait", "size": "large", "per_page": 30}, timeout=40)
@@ -54,6 +54,41 @@ def pick_clips(theme_idx, day, n, log=print):
 def download(c, path):
     with requests.get(c["url"], stream=True, timeout=90) as r:
         r.raise_for_status()
+        with open(path, "wb") as f:
+            for chunk in r.iter_content(1 << 20): f.write(chunk)
+    return path
+
+HOOK_QUERIES = ["woman arms wide nature", "person standing looking at mountain view", "woman walking autumn forest", "girl in flower field", "person overlooking valley"]
+GENERIC = ["colorful landscape aerial", "vibrant nature drone", "scenic road aerial", "unreal landscape"]
+def pick_multi(day, n, log=print, max_mb=30):
+    rnd = random.Random(day * 7 + 3)
+    pexels, pixabay = os.environ.get("PEXELS_API_KEY", ""), os.environ.get("PIXABAY_API_KEY", "")
+    out, seen, names = [], set(), []
+    def grab(q, take):
+        got = 0
+        for src, key in (("pexels", pexels), ("pixabay", pixabay)):
+            if not key or got >= take: continue
+            try: res = (_pexels if src == "pexels" else _pixabay)(key, q, rnd)
+            except Exception as e: log(f"{src} '{q}' failed: {str(e)[:100]}"); continue
+            for c in res:
+                if c["id"] not in seen and got < take:
+                    seen.add(c["id"]); out.append(dict(c, src=src, q=q)); got += 1
+        return got
+    grab(rnd.choice(HOOK_QUERIES), 1)
+    order = list(range(len(THEMES))); rnd.shuffle(order)
+    for ti in order:
+        if len(out) >= n: break
+        name, qs = THEMES[ti]
+        if grab(rnd.choice(qs), 3): names.append(name)
+    for q in GENERIC:
+        if len(out) >= n: break
+        grab(q, 3)
+    log(f"stock clips: {len(out)} themes: {', '.join(names)}")
+    return names, out[:n]
+def download(c, path, max_mb=30):
+    with requests.get(c["url"], stream=True, timeout=90) as r:
+        r.raise_for_status()
+        if int(r.headers.get("Content-Length", 0)) > max_mb * 1048576: raise RuntimeError("clip too large")
         with open(path, "wb") as f:
             for chunk in r.iter_content(1 << 20): f.write(chunk)
     return path
