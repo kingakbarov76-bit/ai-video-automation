@@ -31,5 +31,8 @@
 
 ## Jadval
 - Asosiy: cron-job.org, har 4 soatda ikki marta (:00 va :05). Uxlab yotgan server 30 soniyada javob bermasligi mumkin (cron-job.org buni xato deb sanaydi va ~25 ketma-ket xatodan keyin jadvalni o'chiradi); :05 dagi ochish server uyg'oq paytiga to'g'ri keladi va muvaffaqiyatli bo'ladi, shuning uchun jadval o'chmaydi.
-- Server har uyg'onishda o'zi run boshlaydi; oxirgi yuklash 150 daqiqadan yaqin bo'lsa yoki 24 soatda 12 ta bo'lsa o'tkazib yuboradi (YouTube'dan tekshiradi), dublikat bo'lmaydi.
+- Yuklash faqat Toshkent 04:00, 12:00, 20:00 slotlarida (kuniga 3 ta). Server boshqa paytda uyg'onsa SKIP qiladi; oxirgi yuklashdan 7.5 soat o'tgan bo'lsa slotdan tashqari ham bitta yuklaydi (o'tkazib yuborilgan slot uchun). Oxirgi yuklash 150 daqiqadan yaqin bo'lsa SKIP (dublikat yo'q).
+- Formatlar: 04:00 ro'yxat (6 ta nomli haqiqiy joy), 12:00 bitta joy (nom + 2 fakt), 20:00 Dreamworld AI seriyasi / "Which place would you stay in?" navbat bilan. Joylar va faktlar: `src/places.py`, Dreamworld: `src/dreamworld.py`.
+- Har yuklashning litsenziya yozuvi: branch `music-library`, papka `licenses/`.
+- Sinov: `.github/triggers/call` fayliga endpoint nomini yozib push qiling (masalan `dry_list`, `placescan`); natija loglarda, preview videolar `music-library/previews/` da.
 - GitHub Actions `ping.yml` jadvali bu repoda ishlamaydi; faqat push bilan ishlaydi (zaxira: `ping.yml` ga izoh qatori qo'shib push qilish serverni qayta deploy qiladi).
