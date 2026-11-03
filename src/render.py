@@ -214,7 +214,8 @@ def choice_overlay(path, question, number, name):
     d.ellipse([40, 240, 170, 370], fill=(255, 255, 255, 235)); fn = _font(96); nw = d.textlength(str(number), font=fn)
     d.text((105 - nw / 2, 252), str(number), font=fn, fill=(30, 30, 30, 255))
     _pill(d, name, _font(44), W // 2, int(H * 0.80))
-    d.rounded_rectangle([W - 250, 36, W - 24, 82], radius=22, fill=(0, 0, 0, 110)); d.text((W - 230, 44), "AI-generated", font=_font(26), fill=(255, 255, 255, 235))
+    fb = _font(24); bw = d.textlength("AI-generated", font=fb); bx = (W - bw) / 2   # top centre, below the Shorts top bar
+    d.rounded_rectangle([bx - 16, 98, bx + bw + 16, 134], radius=18, fill=(0, 0, 0, 120)); d.text((bx, 102), "AI-generated", font=fb, fill=(255, 255, 255, 235))
     im.save(path)
 
 def build_choice_video(imgs, names, out_path, workdir, question="Which place would you stay in?", seed=0, log=print):
@@ -244,4 +245,79 @@ def build_choice_video(imgs, names, out_path, workdir, question="Which place wou
     lst = f"{workdir}/list.txt"; open(lst, "w").write("".join(f"file '{os.path.abspath(x)}'\n" for x in clips))
     wav = f"{workdir}/a.wav"; _music(wav, 16.0, 116.13, seed, log)
     run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-i", wav, "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", out_path])
+    return out_path
+
+
+# ---------------- v3: native 1080x1920 cards for named places / Dreamworld ----------------
+HW, HH = 1080, 1920
+def _wrap(d, text, f, maxw):
+    lines, c = [], ""
+    for w in text.split():
+        x = (c + " " + w).strip()
+        if d.textlength(x, font=f) <= maxw: c = x
+        else:
+            if c: lines.append(c)
+            c = w
+    if c: lines.append(c)
+    return lines
+def _outline_text(d, xy, text, f, fill, stroke=4):
+    d.text(xy, text, font=f, fill=fill, stroke_width=stroke, stroke_fill=(0, 0, 0, 255))
+def _box_lines(d, lines, f, y, fill=(255, 255, 255, 255), box=(0, 0, 0, 125), pad=26, gap=1.28):
+    lh = int(f.size * gap); tw = max(d.textlength(l, font=f) for l in lines); x0 = (HW - tw) / 2
+    d.rounded_rectangle([x0 - pad, y - pad * 0.6, x0 + tw + pad, y + lh * len(lines) - (lh - f.size) + pad * 0.9], radius=34, fill=box)
+    for i, l in enumerate(lines):
+        x = (HW - d.textlength(l, font=f)) / 2
+        d.text((x, y + i * lh), l, font=f, fill=fill, stroke_width=2, stroke_fill=(0, 0, 0, 160))
+    return y + lh * len(lines)
+def card(path, hook=None, hook2=None, label=None, num=None, fact=None, cta=None, badge=None, out_size=None):
+    """Transparent overlay: small, readable text inside the Shorts safe zone (centre band, away from the UI)."""
+    im = Image.new("RGBA", (HW, HH), (0, 0, 0, 0)); d = ImageDraw.Draw(im); maxw = 820
+    if badge:
+        f = _font(34); tw = d.textlength(badge, font=f); x = (HW - tw) / 2
+        d.rounded_rectangle([x - 22, 158, x + tw + 22, 210], radius=24, fill=(0, 0, 0, 120)); d.text((x, 164), badge, font=f, fill=(255, 255, 255, 235))
+    if hook:
+        f1 = _font(84); y = 290
+        for l in _wrap(d, hook, f1, 940):
+            _outline_text(d, ((HW - d.textlength(l, font=f1)) / 2, y), l, f1, (255, 226, 40, 255), 5); y += 104
+        if hook2:
+            f2 = _font(56)
+            for l in _wrap(d, hook2, f2, 940):
+                _outline_text(d, ((HW - d.textlength(l, font=f2)) / 2, y + 8), l, f2, (255, 255, 255, 255), 4); y += 70
+    y0 = 1230
+    if label:
+        size = 54
+        while size > 40 and d.textlength(label, font=_font(size)) > maxw: size -= 4
+        f = _font(size); lines = _wrap(d, label, f, maxw)
+        if num:
+            fn = _font(50); cx = HW // 2; cy = y0 - 70
+            d.ellipse([cx - 40, cy - 40, cx + 40, cy + 40], fill=(255, 226, 40, 240))
+            nw = d.textlength(str(num), font=fn); d.text((cx - nw / 2, cy - 31), str(num), font=fn, fill=(20, 20, 20, 255))
+        y0 = _box_lines(d, lines, f, y0) + 40
+    if fact:
+        f = _font(48); _box_lines(d, _wrap(d, fact, f, maxw), f, y0, box=(0, 0, 0, 115))
+    if cta:
+        f = _font(54); _box_lines(d, _wrap(d, cta, f, maxw), f, 1230, fill=(255, 236, 120, 255), box=(0, 0, 0, 135))
+    if out_size and out_size != (HW, HH): im = im.resize(out_size, Image.LANCZOS)
+    im.save(path)
+
+FRAMES13 = [93] + [31] * 11 + [46]   # 480 frames = 16.0 s at 116.13 BPM (cuts on the beat)
+def build_seq_video(segments, overlays, out_path, workdir, seed=0, log=print, hd=True, bpm=116.13):
+    """segments: list of (src, start_seconds); overlays: list of png paths (or None); 13 segments -> 16 s."""
+    os.makedirs(workdir, exist_ok=True); clips = []; ow, oh = (HW, HH) if hd else (W, H)
+    frames = FRAMES13 if len(segments) == 13 else [93] + [31] * (len(segments) - 2) + [46]
+    for i, ((src, ss), ov) in enumerate(zip(segments, overlays)):
+        c = f"{workdir}/seq{i}.mp4"
+        base = (f"scale={ow}:{oh}:force_original_aspect_ratio=increase:flags=lanczos,crop={ow}:{oh},fps={FPS},"
+                f"eq=saturation=1.22:contrast=1.05:brightness=0.01,setsar=1,format=yuv420p")
+        cmd = ["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{ss:.2f}", "-i", src]
+        if ov: cmd += ["-i", ov, "-filter_complex", f"[0:v]{base}[a];[a][1:v]overlay=0:0[v]", "-map", "[v]"]
+        else: cmd += ["-vf", base, "-map", "0:v"]
+        enc = (["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-maxrate", "10M", "-bufsize", "20M", "-threads", "1"] if hd
+               else ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "22", "-threads", "1"])
+        run(cmd + ["-frames:v", str(frames[i]), "-an", "-r", str(FPS)] + enc + [c])
+        clips.append(c); log(f"segment {i+1}/{len(segments)} done")
+    lst = f"{workdir}/seqlist.txt"; open(lst, "w").write("".join(f"file '{os.path.abspath(c)}'\n" for c in clips))
+    dur = sum(frames) / FPS; wav = f"{workdir}/a.wav"; _music(wav, dur, bpm, seed, log)
+    run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-i", wav, "-map", "0:v", "-map", "1:a",
+         "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", out_path])
     return out_path

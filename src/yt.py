@@ -5,8 +5,8 @@ def access_token(client_id, client_secret, refresh_token):
                       "refresh_token": refresh_token, "grant_type": "refresh_token"}, timeout=30)
     if r.status_code != 200: raise RuntimeError(f"token refresh failed HTTP {r.status_code}: {r.text[:300]}")
     return r.json()["access_token"]
-def upload(access, path, title, description, tags, privacy="public", synthetic=True):
-    meta = {"snippet": {"title": title[:100], "description": description, "tags": tags, "categoryId": "22"},
+def upload(access, path, title, description, tags, privacy="public", synthetic=True, category="19"):
+    meta = {"snippet": {"title": title[:100], "description": description[:4900], "tags": tags, "categoryId": category},
             "status": {"privacyStatus": privacy, "selfDeclaredMadeForKids": False, "containsSyntheticMedia": synthetic}}
     size = os.path.getsize(path)
     h = {"Authorization": f"Bearer {access}", "Content-Type": "application/json; charset=UTF-8",

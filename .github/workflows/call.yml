@@ -1,0 +1,14 @@
+name: call-endpoint
+on:
+  push:
+    branches: [main]
+    paths: [".github/triggers/call"]
+jobs:
+  call:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          path=$(head -n1 .github/triggers/call | tr -cd 'a-z_')
+          sleep 170
+          for i in 1 2 3 4 5; do out=$(curl -s -m 90 "https://yt-auto-shorts.onrender.com/$path") && echo "$out" && break; sleep 30; done

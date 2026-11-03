@@ -95,3 +95,50 @@ def download(c, path, max_mb=80):
         with open(path, "wb") as f:
             for chunk in r.iter_content(1 << 20): f.write(chunk)
     return path
+
+# ---------------- place-matched clips (label must match the footage) ----------------
+def _best_pexels_file(v):
+    fs = [f for f in v.get("video_files", []) if f.get("file_type") == "video/mp4" and f.get("width") and f.get("height")]
+    por = [f for f in fs if f["height"] > f["width"] and f["height"] >= 1280]
+    if por: return min(por, key=lambda f: (0 if f["height"] >= 1920 else 1, f["width"] * f["height"]))
+    lan = [f for f in fs if f["width"] >= f["height"] and f["height"] >= 1440]   # 9:16 crop of >=1440p keeps detail
+    if lan: return min(lan, key=lambda f: f["width"] * f["height"])
+    return None
+def _slug(url):
+    return (url or "").rstrip("/").split("/")[-1]
+def place_clips(place, need, log=print, seed=0):
+    from .places import matches
+    rnd = random.Random(seed); pexels, pixabay = os.environ.get("PEXELS_API_KEY", ""), os.environ.get("PIXABAY_API_KEY", "")
+    out, seen = [], set()
+    for q in place["q"]:
+        if len(out) >= need: break
+        if pexels:
+            try:
+                r = requests.get("https://api.pexels.com/videos/search", headers={"Authorization": pexels},
+                                 params={"query": q, "per_page": 40, "size": "large"}, timeout=40); r.raise_for_status()
+                for v in r.json().get("videos", []):
+                    if v.get("duration", 0) < 5 or f"px{v['id']}" in seen or not matches(place, _slug(v.get("url"))): continue
+                    f = _best_pexels_file(v)
+                    if not f: continue
+                    seen.add(f"px{v['id']}")
+                    out.append({"id": f"px{v['id']}", "url": f["link"], "credit": (v.get("user") or {}).get("name", "Pexels"), "page": v.get("url"),
+                                "src": "pexels", "dur": float(v.get("duration") or 8), "w": f["width"], "h": f["height"]})
+            except Exception as e: log(f"pexels '{q}' failed: {str(e)[:100]}")
+        if pixabay and len(out) < need:
+            try:
+                r = requests.get("https://pixabay.com/api/videos/", params={"key": pixabay, "q": q, "per_page": 50, "safesearch": "true"}, timeout=40); r.raise_for_status()
+                for h in r.json().get("hits", []):
+                    if h.get("duration", 0) < 5 or f"pb{h['id']}" in seen or not matches(place, h.get("tags", "")): continue
+                    best = None
+                    for k in ("large", "medium"):
+                        v = h["videos"].get(k) or {}
+                        w, hh = v.get("width") or 0, v.get("height") or 0
+                        if v.get("url") and ((hh > w and hh >= 1280) or (w >= hh and hh >= 1440)): best = v; break
+                    if not best: continue
+                    seen.add(f"pb{h['id']}")
+                    out.append({"id": f"pb{h['id']}", "url": best["url"], "credit": h.get("user", "Pixabay"), "page": h.get("pageURL"),
+                                "src": "pixabay", "dur": float(h.get("duration") or 8), "w": best["width"], "h": best["height"]})
+            except Exception as e: log(f"pixabay '{q}' failed: {str(e)[:100]}")
+    rnd.shuffle(out)
+    out.sort(key=lambda c: 0 if c["h"] > c["w"] else 1)   # portrait first (no crop needed)
+    return out
