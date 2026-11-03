@@ -16,7 +16,9 @@ def runner(mode):
 def start(mode):
     with LOCK:
         if STATE["running"]:
-            if mode == "run" and not STATE.get("queued"):
+            # a second wake-up ping (or the boot timer) while a run is already
+            # going is just a duplicate: answer fast, queue nothing
+            if mode == "run" and STATE.get("last_mode") != "run" and not STATE.get("queued"):
                 STATE["queued"] = True
                 def later():
                     while STATE["running"]: time.sleep(5)
