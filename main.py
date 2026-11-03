@@ -17,14 +17,14 @@ def _mk(work, i):
     os.makedirs(work, exist_ok=True); return f"{work}/s{i}.mp4"
 def main(mode):
     _now = datetime.datetime.utcnow()
-    day = (_now.date() - datetime.date(2026, 1, 1)).days * 2 + (1 if _now.hour >= 10 else 0)  # two slots per day
+    day = (_now.date() - datetime.date(2026, 1, 1)).days * 4 + _now.hour // 6  # four slots per day
     acc, tok = env("CF_ACCOUNT_ID"), env("CF_API_TOKEN")
     log("cloudflare verify:", *cf_images.verify(acc, tok))
     if mode == "check":
         names, clips = stock.pick_multi(day, 13, log)
         log("themes:", names, "| first clip:", clips[0]["src"] if clips else None); return
     os.makedirs("out", exist_ok=True); out = "out/video.mp4"; work = "out/work"
-    use_ai = (day % 6 == 5) or mode == "ai"
+    use_ai = (day % 8 == 7) or mode == "ai"
     synthetic = True; credits = ""
     hook = scenes.HOOKS[day % len(scenes.HOOKS)]
     if not use_ai:

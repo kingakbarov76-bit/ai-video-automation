@@ -1,7 +1,7 @@
 name: daily-ping
 on:
   schedule:
-    - cron: "0 5,14 * * *"   # 10:00 and 19:00 Tashkent
+    - cron: "0 4,10,16,22 * * *"   # 09:00, 15:00, 21:00, 03:00 Tashkent
   workflow_dispatch:
 jobs:
   ping:
