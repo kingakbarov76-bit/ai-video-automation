@@ -30,6 +30,13 @@ def main(mode):
         names, clips = stock.pick_multi(day, 13, log)
         log("themes:", names, "| first clip:", clips[0]["src"] if clips else None); return
     os.makedirs("out", exist_ok=True); out = "out/video.mp4"; work = "out/work"
+    if mode == "run":
+        try:
+            a0 = yt.access_token(env("GOOGLE_CLIENT_ID"), env("GOOGLE_CLIENT_SECRET"), env("YT_REFRESH_TOKEN"))
+            mins = yt.minutes_since_last_upload(a0)
+            if mins is not None and mins < 150:
+                log(f"SKIP: last upload {mins:.0f} min ago (slot already done)"); return
+        except Exception as ex: log("upload-guard check failed, continuing:", str(ex)[:120])
     try:
         from src import music
         music.maybe_generate_daily(log)

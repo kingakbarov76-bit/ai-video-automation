@@ -23,3 +23,11 @@
 - Render bepul rejasida oylik trafik ~5 GB bo'lishi mumkin: bitta video ~6-22 MB. Oylik > 3,5 GB bo'lsa yuklash sonini kamaytiring.
 - YouTube API kvotasi: kuniga 10 000 birlik, bitta yuklash 1600.
 - Google loyiha "Testing" rejimida bo'lsa ruxsat 7 kunda tugaydi.
+
+## Musiqa kutubxonasi
+- AI treklar (ACE-Step 1.5, Hugging Face Space `ACE-Step/Ace-Step-v1.5`) kuniga 1 marta 4 tadan yaratiladi (bepul ZeroGPU limiti).
+- Saqlanadi: shu repo, branch `music-library`, papka `music/` (`_state.json` keyingi urinish vaqti). Bu branch deploy qilmaydi.
+- Render env: `HF_TOKEN` (o'qish), `GH_PAT` (repo'ga yozish). Kutubxona bo'sh bo'lsa ichki sintez musiqa ishlatiladi.
+
+## Jadval
+- `ping.yml` har 4 soatlik slotda 3 marta (:07, :27, :47) `/run` ni ochadi. Server oxirgi yuklash 150 daqiqadan yaqin bo'lsa o'tkazib yuboradi (YouTube'dan tekshiradi), shuning uchun dublikat bo'lmaydi.

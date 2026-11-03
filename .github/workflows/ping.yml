@@ -1,7 +1,7 @@
 name: daily-ping
 on:
   schedule:
-    - cron: "0 2,6,10,14,18,22 * * *"   # every 4 hours
+    - cron: "7,27,47 2,6,10,14,18,22 * * *"   # 3 tries per 4-hour slot; server skips if the slot is already uploaded
   workflow_dispatch:
   push:
     branches: [main]

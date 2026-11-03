@@ -15,10 +15,16 @@ def runner(mode):
     finally: STATE["running"] = False
 def start(mode):
     with LOCK:
-        if STATE["running"]: return "already running"
-        if mode == "run" and time.time() - STATE["last_start"] < 3 * 3600: return "skipped (ran within last 3h)"
-        STATE.update(running=True, last_mode=mode)
-        if mode == "run": STATE["last_start"] = time.time()
+        if STATE["running"]:
+            if mode == "run" and not STATE.get("queued"):
+                STATE["queued"] = True
+                def later():
+                    while STATE["running"]: time.sleep(5)
+                    STATE["queued"] = False; start("run")
+                threading.Thread(target=later, daemon=True).start()
+                return "busy, run queued"
+            return "already running"
+        STATE.update(running=True, last_mode=mode, last_start=time.time())
     threading.Thread(target=runner, args=(mode,), daemon=True).start()
     return "started " + mode
 class H(BaseHTTPRequestHandler):
