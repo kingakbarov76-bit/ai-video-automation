@@ -111,7 +111,7 @@ def build_beat_video(clip_files, line1, line2, outro, out_path, workdir, bpm=116
     ov2 = f"{workdir}/outro.png"; cap_overlay(ov2, outro, y_top=int(H * 0.78), big=False)
     last = len(clip_files) - 1
     for i, src in enumerate(clip_files):
-        frames = 93 if i == 0 else 31
+        frames = 93 if i == 0 else (46 if i == last else 31)
         ov = ov1 if i == 0 else (ov2 if i == last else None)
         c = f"{workdir}/clip{i}.mp4"
         base = (f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps={FPS},eq=saturation=1.35:contrast=1.08:brightness=0.02,setsar=1,format=yuv420p")
@@ -124,7 +124,7 @@ def build_beat_video(clip_files, line1, line2, outro, out_path, workdir, bpm=116
         clips.append(c); log(f"clip {i+1}/{len(clip_files)} done")
     lst = f"{workdir}/list.txt"
     open(lst, "w").write("".join(f"file '{os.path.abspath(c)}'\n" for c in clips))
-    dur = (93 + 31 * (len(clips) - 1)) / FPS; wav = f"{workdir}/a.wav"; make_beat(wav, dur, bpm, seed)
+    dur = (93 + 31 * (len(clips) - 2) + 46) / FPS; wav = f"{workdir}/a.wav"; make_beat(wav, dur, bpm, seed)
     run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-i", wav, "-map", "0:v", "-map", "1:a",
          "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", out_path])
     return out_path

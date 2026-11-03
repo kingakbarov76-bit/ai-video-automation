@@ -16,7 +16,7 @@ def runner(mode):
 def start(mode):
     with LOCK:
         if STATE["running"]: return "already running"
-        if mode == "run" and time.time() - STATE["last_start"] < 20 * 3600: return "skipped (ran within last 20h)"
+        if mode == "run" and time.time() - STATE["last_start"] < 6 * 3600: return "skipped (ran within last 6h)"
         STATE.update(running=True, last_start=time.time(), last_mode=mode)
     threading.Thread(target=runner, args=(mode,), daemon=True).start()
     return "started " + mode

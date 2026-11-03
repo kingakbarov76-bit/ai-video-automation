@@ -16,24 +16,25 @@ def env(k):
 def _mk(work, i):
     os.makedirs(work, exist_ok=True); return f"{work}/s{i}.mp4"
 def main(mode):
-    day = (datetime.date.today() - datetime.date(2026, 1, 1)).days
+    _now = datetime.datetime.utcnow()
+    day = (_now.date() - datetime.date(2026, 1, 1)).days * 2 + (1 if _now.hour >= 10 else 0)  # two slots per day
     acc, tok = env("CF_ACCOUNT_ID"), env("CF_API_TOKEN")
     log("cloudflare verify:", *cf_images.verify(acc, tok))
     if mode == "check":
         names, clips = stock.pick_multi(day, 15, log)
         log("themes:", names, "| first clip:", clips[0]["src"] if clips else None); return
     os.makedirs("out", exist_ok=True); out = "out/video.mp4"; work = "out/work"
-    use_ai = (day % 3 == 2) or mode == "ai"
+    use_ai = (day % 6 == 5) or mode == "ai"
     synthetic = True; credits = ""
     hook = scenes.HOOKS[day % len(scenes.HOOKS)]
     if not use_ai:
-        names, clips = stock.pick_multi(day, 15, log)
+        names, clips = stock.pick_multi(day, 14, log)
         files = []
         for i, c in enumerate(clips):
             try: files.append(stock.download(c, f"{work}/s{i}.mp4" if os.path.isdir(work) else _mk(work, i)))
             except Exception as ex: log(f"download {i} failed: {str(ex)[:80]}")
         if len(files) >= 8:
-            line1 = stock.TITLES[day % len(stock.TITLES)].replace("Places on Earth That Don't Feel Real", "Places on Earth that don't feel real")
+            line1 = "Places on Earth that don't feel real"
             render.build_beat_video(files, line1, "Wait for the last one", "Follow for more", out, work, seed=day, log=log)
             synthetic = False; theme = ", ".join(names[:4]) or "Nature"
             credits = "Footage from " + ", ".join(sorted({c["credit"] for c in clips})[:8]) + " via Pexels and Pixabay."
@@ -53,7 +54,8 @@ def main(mode):
         credits = "All visuals are AI-generated and not real photographs."
     log("video built", os.path.getsize(out), "bytes")
     access = yt.access_token(env("GOOGLE_CLIENT_ID"), env("GOOGLE_CLIENT_SECRET"), env("YT_REFRESH_TOKEN"))
-    title = (f"{title_base} 🤯" if not use_ai else f"{title_base}: {theme}")[:90] + " #shorts"
+    title = (f"Places on earth that don't feel real {['😱','🤯','😍'][day % 3]} #travel #nature #world #adventure" if not use_ai
+             else f"{title_base}: {theme} #shorts #nature")[:100]
     description = (("#travel #nature #places\n" if not use_ai else "#AIart #nature #places\n") +
                    f"Places on Earth that don't feel real. Which one is your favorite? Tell me in the comments!\n"
                    f"Featuring: {theme}.\n{credits}\nFollow for a new unreal place every day.\n"
