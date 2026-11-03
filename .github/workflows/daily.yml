@@ -20,10 +20,7 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python main.py "${{ github.event.inputs.mode || 'run' }}"
         env:
-          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          CONFIG_JSON: ${{ secrets.CONFIG_JSON }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
       - name: save log
         if: always()

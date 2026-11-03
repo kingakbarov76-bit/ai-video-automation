@@ -7,8 +7,10 @@ def log(*a):
 def save():
     os.makedirs("logs", exist_ok=True)
     open(LOG, "w").write(f"{datetime.datetime.utcnow().isoformat()}Z\n" + "\n".join(lines) + "\n")
+import json
+_CFG = json.loads(os.environ.get("CONFIG_JSON") or "{}")
 def env(k):
-    v = os.environ.get(k, "").strip()
+    v = (os.environ.get(k) or _CFG.get(k) or "").strip()
     if not v: raise SystemExit(f"missing secret: {k}")
     return v
 def main(mode):
