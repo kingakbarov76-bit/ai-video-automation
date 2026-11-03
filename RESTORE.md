@@ -1,7 +1,7 @@
 # Dreamy Earth: tiklash qo'llanmasi (RESTORE)
 
 ## Nima qayerda
-- Kod: GitHub `kingakbarov76-bit/ai-video-automation` (branch `main`, barqaror nusxa: tag `stable-2026-11-03`).
+- Kod: GitHub `kingakbarov76-bit/ai-video-automation` (branch `main`, barqaror nusxa: branch `stable-2026-11-03`).
 - Shorts serveri: Render web service `yt-auto-shorts` (srv-dbkrcsnf3r2c73fnj4b0), https://yt-auto-shorts.onrender.com
 - Jadval: GitHub Actions `ping.yml` har 4 soatda `/run` ni ochadi.
 - Kalitlar: faqat Render Environment (va `.env`, repo'da YO'Q). Ro'yxati: `.env.example`.
@@ -9,7 +9,7 @@
 ## Server ishlamasa
 1. Render > yt-auto-shorts > Events/Logs ni ko'ring. `/status` va `/analyze` sahifalari ham bor.
 2. Qayta ishga tushirish: Render > Manual Deploy > Deploy latest commit.
-3. Kod buzilgan bo'lsa: `git checkout stable-2026-11-03` (yoki `git revert`) va push qiling.
+3. Kod buzilgan bo'lsa: `git checkout stable-2026-11-03 (branch)` (yoki `git revert`) va push qiling.
 
 ## YouTube ruxsati tugasa (invalid_grant)
 `/auth` sahifasini oching, havola orqali ruxsat bering, `code=` ni sahifaga `?code=...` qilib qo'shing, chiqqan REFRESH TOKENni Render Environment'da `YT_REFRESH_TOKEN` ga yozing.
