@@ -32,5 +32,36 @@ def test(log=print):
     os.makedirs("out", exist_ok=True)
     try: ccmixter(10, log)
     except Exception as e: log("ccmixter failed:", str(e)[:200])
-    try: inspect(log)
-    except Exception as e: log("ACE inspect failed:", type(e).__name__, str(e)[:300])
+    try:
+        p = generate("out/music_test.mp3", 0, 20, 116, log); describe(p, log); log("ACE OK: listen at /music.mp3")
+    except Exception as e: log("ACE generate failed:", type(e).__name__, str(e)[:400])
+
+STYLES = [
+ "uplifting cinematic electronic, atmospheric pads, deep sub bass, punchy drums, dreamy travel montage",
+ "mysterious ambient phonk, deep 808 bass, crisp hi-hats, dark atmospheric synth, hypnotic",
+ "euphoric melodic house, bright plucks, warm chords, four on the floor kick, summer travel vibe",
+ "epic cinematic orchestral hybrid, soaring strings, big drums, wonder and awe",
+ "chill future bass, lush supersaw chords, soft vocal chops, relaxing yet energetic",
+ "space ambient synthwave, shimmering arpeggios, warm analog bass, cosmic and dreamy",
+]
+def _path(x):
+    if isinstance(x, dict): return x.get("path") or x.get("name") or x.get("url")
+    return x
+def generate(out_path, style_idx=0, seconds=20, bpm=116, log=print, timeout=300):
+    c = _client(log)
+    job = c.submit(generation_mode="custom", param_4=STYLES[style_idx % len(STYLES)] + ", instrumental, no vocals",
+                   param_5="[Instrumental]", param_6=bpm, param_15=seconds, param_16=1, param_30="mp3",
+                   api_name="/generation_wrapper")
+    res = job.result(timeout=timeout)
+    first = _path(res[0] if isinstance(res, (list, tuple)) else res)
+    status = res[10] if isinstance(res, (list, tuple)) and len(res) > 10 else ""
+    log("ACE status:", str(status)[:200])
+    if not first or not os.path.exists(str(first)): raise RuntimeError(f"no audio in result: {str(res)[:300]}")
+    shutil.copy(first, out_path); return out_path
+def describe(path, log=print):
+    import subprocess, numpy as np
+    d = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path], capture_output=True, text=True).stdout.strip()
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-ac", "1", "-ar", "22050", "-f", "s16le", "-"], capture_output=True).stdout
+    x = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768
+    rms = float(np.sqrt((x ** 2).mean())) if len(x) else 0
+    log(f"music file: {os.path.getsize(path)} bytes, duration {d}s, rms {rms:.3f}, peak {float(np.abs(x).max()) if len(x) else 0:.2f}")
