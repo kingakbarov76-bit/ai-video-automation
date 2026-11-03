@@ -19,7 +19,7 @@ def main(mode):
     day = (datetime.date.today() - datetime.date(2026, 1, 1)).days
     name, desc = scenes.SCENES[day % len(scenes.SCENES)]
     light = scenes.LIGHTS[(day // len(scenes.SCENES)) % len(scenes.LIGHTS)]
-    n = 1 if mode == "check" else 5
+    n = 1 if mode == "check" else 4
     imgs = []
     for i in range(n):
         ang = scenes.ANGLES[i % len(scenes.ANGLES)]
@@ -31,7 +31,7 @@ def main(mode):
         return
     hook = scenes.HOOKS[day % len(scenes.HOOKS)]
     os.makedirs("out", exist_ok=True); out = "out/video.mp4"
-    render.build_video(imgs, hook, out, "out/work", per=4.0, seed=day)
+    render.build_video(imgs, hook, out, "out/work", per=4.0, seed=day, log=log)
     log("video built", os.path.getsize(out), "bytes")
     access = yt.access_token(env("GOOGLE_CLIENT_ID"), env("GOOGLE_CLIENT_SECRET"), env("YT_REFRESH_TOKEN"))
     title = f"{name} #shorts"

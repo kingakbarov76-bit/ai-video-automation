@@ -3,7 +3,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import main as job
 STATE = {"running": False, "last_start": 0, "last_mode": None}
 LOCK = threading.Lock()
+def keepalive():
+    url = os.environ.get("RENDER_EXTERNAL_URL", "")
+    while STATE["running"]:
+        time.sleep(240)
+        try: requests.get(url + "/", timeout=30)
+        except Exception: pass
 def runner(mode):
+    threading.Thread(target=keepalive, daemon=True).start()
     try: job.execute(mode)
     finally: STATE["running"] = False
 def start(mode):
