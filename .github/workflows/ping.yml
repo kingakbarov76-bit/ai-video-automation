@@ -1,0 +1,15 @@
+name: daily-ping
+on:
+  schedule:
+    - cron: "0 3 * * *"   # 08:00 Tashkent
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: wake server and start the daily video
+        run: |
+          for i in 1 2 3 4 5; do
+            out=$(curl -s -m 90 https://yt-auto-shorts.onrender.com/run) && echo "$out" && break
+            sleep 30
+          done
