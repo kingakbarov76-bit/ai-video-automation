@@ -6,9 +6,15 @@ on:
 jobs:
   call:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - run: |
-          path=$(head -n1 .github/triggers/call | tr -cd 'a-z_')
           sleep 170
-          for i in 1 2 3 4 5; do out=$(curl -s -m 90 "https://yt-auto-shorts.onrender.com/$path") && echo "$out" && break; sleep 30; done
+          base=https://yt-auto-shorts.onrender.com
+          grep -v '^#' .github/triggers/call | tr -cd 'a-z_\n' | while read -r path; do
+            [ -z "$path" ] && continue
+            for i in $(seq 1 40); do curl -s -m 60 "$base/status" | head -n1 | grep -q "running=False" && break; sleep 20; done
+            echo "== $path: $(curl -s -m 90 "$base/$path")"
+            sleep 30
+          done

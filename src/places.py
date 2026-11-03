@@ -86,8 +86,6 @@ P = [
   "Known as the Valley of the Moon", "Films have used it to stand in for Mars"),
  ("Petra, Jordan", "jordan", ["petra"], ["petra jordan"],
   "A city carved into rose-colored rock", "Built over 2,000 years ago"),
- ("Victoria Falls, Zambia & Zimbabwe", "victoriafalls", ["victoria falls"], ["victoria falls"],
-  "Locally called 'The Smoke That Thunders'", "Its spray can be seen from far away"),
  ("Iguazu Falls, Argentina & Brazil", "iguazu", ["iguazu", "iguacu"], ["iguazu falls"],
   "Around 275 waterfalls in one place", "On the border of Argentina and Brazil"),
  ("Guilin, China", "china", ["guilin", "yangshuo", "li river"], ["guilin", "yangshuo"],
