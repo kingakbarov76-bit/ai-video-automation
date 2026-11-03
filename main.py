@@ -58,7 +58,11 @@ def main(mode):
             line1 = "Places on Earth that don't feel real"
             rr = __import__("random").Random(day)
             caps = {3: rr.choice(aiplaces.FEEL_MID), len(files[:13]) - 1: rr.choice(aiplaces.FEEL_END)}
-            render.build_beat_video2(files[:13], (line1, "Wait for the last one"), caps, None, out, work, seed=day, log=log)
+            try:
+                render.build_beat_video2(files[:13], (line1, "Wait for the last one"), caps, None, out, work, seed=day, log=log, hd=True)
+            except Exception as ex:
+                log("HD build failed, falling back to 720p:", str(ex)[:150])
+                render.build_beat_video2(files[:13], (line1, "Wait for the last one"), caps, None, out, work, seed=day, log=log)
             synthetic = False; theme = ", ".join(names[:4]) or "Nature"
             credits = "Footage from " + ", ".join(sorted({c["credit"] for c in clips})[:8]) + " via Pexels and Pixabay."
             title_base = stock.TITLES[day % len(stock.TITLES)]

@@ -167,7 +167,7 @@ def image_to_clip(img_bytes, out_mp4, workdir, idx, secs=3.4):
          "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-threads", "1", out_mp4])
     return out_mp4
 
-def build_beat_video2(clip_files, hook, captions, badge, out_path, workdir, bpm=116.13, seed=0, log=print):
+def build_beat_video2(clip_files, hook, captions, badge, out_path, workdir, bpm=116.13, seed=0, log=print, hd=False):
     """Same beat structure as build_beat_video (hook 93f, cuts of 31f, last 46f) with small soft captions by clip index."""
     from .audio import make_beat
     os.makedirs(workdir, exist_ok=True); clips = []; last = len(clip_files) - 1
@@ -176,11 +176,15 @@ def build_beat_video2(clip_files, hook, captions, badge, out_path, workdir, bpm=
         cap = captions.get(i); ov = None
         if i == 0 or cap or badge:
             ov = f"{workdir}/ov{i}.png"; soft_overlay(ov, hook=hook if i == 0 else None, caption=cap, badge=badge)
+            if hd: Image.open(ov).resize((1080, 1920), Image.LANCZOS).save(ov)
         c = f"{workdir}/clip{i}.mp4"
-        base = (f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps={FPS},eq=saturation=1.3:contrast=1.06:brightness=0.02,setsar=1,format=yuv420p")
+        ow, oh = (1080, 1920) if hd else (W, H)
+        base = (f"scale={ow}:{oh}:force_original_aspect_ratio=increase:flags=lanczos,crop={ow}:{oh},fps={FPS},eq=saturation=1.3:contrast=1.06:brightness=0.02,setsar=1,format=yuv420p")
         if ov: cmd = ["ffmpeg", "-y", "-loglevel", "error", "-ss", "0.3", "-i", src, "-i", ov, "-filter_complex", f"[0:v]{base}[a];[a][1:v]overlay=0:0[v]", "-map", "[v]"]
         else: cmd = ["ffmpeg", "-y", "-loglevel", "error", "-ss", "0.3", "-i", src, "-vf", base, "-map", "0:v"]
-        run(cmd + ["-frames:v", str(frames), "-an", "-r", str(FPS), "-c:v", "libx264", "-preset", "ultrafast", "-crf", "24", "-threads", "1", c])
+        enc = (["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-maxrate", "10M", "-bufsize", "20M", "-threads", "1"] if hd
+               else ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "24", "-threads", "1"])
+        run(cmd + ["-frames:v", str(frames), "-an", "-r", str(FPS)] + enc + [c])
         clips.append(c); log(f"clip {i+1}/{len(clip_files)} done")
     lst = f"{workdir}/list.txt"; open(lst, "w").write("".join(f"file '{os.path.abspath(c)}'\n" for c in clips))
     dur = (93 + 31 * (len(clips) - 2) + 46) / FPS; wav = f"{workdir}/a.wav"; make_beat(wav, dur, bpm, seed)

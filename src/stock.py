@@ -22,7 +22,7 @@ def _pexels(key, q, rnd):
         if v.get("duration", 0) < 5: continue
         files = [f for f in v.get("video_files", []) if f.get("file_type") == "video/mp4" and (f.get("height") or 0) >= 1280 and (f.get("width") or 0) <= 1440]
         if not files: continue
-        f = min(files, key=lambda x: (x["width"] or 0) * (x["height"] or 0))
+        f = min(files, key=lambda x: (0 if (x["height"] or 0) >= 1920 else 1, (x["width"] or 0) * (x["height"] or 0)))
         out.append({"id": f"px{v['id']}", "url": f["link"], "credit": (v.get("user") or {}).get("name", "Pexels")})
     rnd.shuffle(out); return out
 def _pixabay(key, q, rnd):
@@ -88,7 +88,7 @@ def pick_multi(day, n, log=print, max_mb=30, weights=None):
         grab(q, 3)
     log(f"stock clips: {len(out)} themes: {', '.join(names)}")
     return names, out[:n]
-def download(c, path, max_mb=30):
+def download(c, path, max_mb=80):
     with requests.get(c["url"], stream=True, timeout=90) as r:
         r.raise_for_status()
         if int(r.headers.get("Content-Length", 0)) > max_mb * 1048576: raise RuntimeError("clip too large")
