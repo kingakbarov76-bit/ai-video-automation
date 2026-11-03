@@ -28,8 +28,18 @@ def ccmixter(limit=10, log=print):
     log(f"ccmixter: {len(out)} results")
     for o in out[:6]: log("  ccm:", json.dumps(o)[:300])
     return out
+def runtime(log=print):
+    try:
+        h = {"Authorization": "Bearer " + os.environ.get("HF_TOKEN", "")}
+        r = requests.get(f"https://huggingface.co/api/spaces/{SPACE}/runtime", headers=h, timeout=30)
+        log("ACE runtime:", r.status_code, r.text[:300])
+        r = requests.get("https://huggingface.co/api/whoami-v2", headers=h, timeout=30)
+        j = r.json() if r.ok else {}
+        log("HF whoami:", r.status_code, j.get("name"), "type", j.get("type"), "pro", j.get("isPro"))
+    except Exception as e: log("runtime err", str(e)[:150])
 def test(log=print):
     os.makedirs("out", exist_ok=True)
+    runtime(log)
     try: ccmixter(10, log)
     except Exception as e: log("ccmixter failed:", str(e)[:200])
     try:
@@ -47,7 +57,7 @@ STYLES = [
 def _path(x):
     if isinstance(x, dict): return x.get("path") or x.get("name") or x.get("url")
     return x
-def generate(out_path, style_idx=0, seconds=20, bpm=116, log=print, timeout=300):
+def generate(out_path, style_idx=0, seconds=20, bpm=116, log=print, timeout=600):
     c = _client(log)
     info = c.view_api(return_format="dict", print_info=False)
     params = info["named_endpoints"]["/generation_wrapper"]["parameters"]
@@ -56,7 +66,16 @@ def generate(out_path, style_idx=0, seconds=20, bpm=116, log=print, timeout=300)
     args = [over.get(p.get("parameter_name"), p.get("parameter_default")) for p in params]
     log(f"ACE submit with {len(args)} args")
     job = c.submit(*args, api_name="/generation_wrapper")
-    res = job.result(timeout=timeout)
+    import time as _t
+    t0 = _t.time(); last = None
+    while not job.done():
+        if _t.time() - t0 > timeout: job.cancel(); raise TimeoutError(f"ACE timeout, last status {last}")
+        try:
+            st = job.status(); cur = f"{getattr(st, 'code', '')} rank={getattr(st, 'rank', '')} queue={getattr(st, 'queue_size', '')} eta={getattr(st, 'eta', '')} msg={str(getattr(st, 'log', '') or getattr(st, 'message', ''))[:120]}"
+            if cur != last: log("ACE status:", cur); last = cur
+        except Exception as e: log("status err", str(e)[:100])
+        _t.sleep(10)
+    res = job.result()
     first = _path(res[0] if isinstance(res, (list, tuple)) else res)
     status = res[10] if isinstance(res, (list, tuple)) and len(res) > 10 else ""
     log("ACE status:", str(status)[:200])
