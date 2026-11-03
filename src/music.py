@@ -37,8 +37,17 @@ def runtime(log=print):
         j = r.json() if r.ok else {}
         log("HF whoami:", r.status_code, j.get("name"), "type", j.get("type"), "pro", j.get("isPro"), "auth", json.dumps(j.get("auth", {}))[:300])
     except Exception as e: log("runtime err", str(e)[:150])
+def gh_runs(log=print):
+    r = requests.get(f"{GH}/repos/{REPO}/actions/runs", headers=_gh(), params={"per_page": 15}, timeout=30)
+    if r.status_code != 200: log("gh runs:", r.status_code, r.text[:150]); return
+    for w in r.json().get("workflow_runs", []):
+        log(f"  RUN {w.get('name')} event={w.get('event')} status={w.get('status')}/{w.get('conclusion')} created={w.get('created_at')}")
+    r = requests.get(f"{GH}/repos/{REPO}/actions/workflows", headers=_gh(), timeout=30)
+    for w in (r.json().get("workflows", []) if r.ok else []): log(f"  WF {w.get('name')} state={w.get('state')} path={w.get('path')}")
 def test(log=print):
     os.makedirs("out", exist_ok=True)
+    try: gh_runs(log)
+    except Exception as e: log("gh runs err", str(e)[:120])
     runtime(log)
     try: selftest(log)
     except Exception as e: log("library selftest failed:", str(e)[:200])
