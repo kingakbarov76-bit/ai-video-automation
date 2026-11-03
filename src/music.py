@@ -35,16 +35,17 @@ def runtime(log=print):
         log("ACE runtime:", r.status_code, r.text[:300])
         r = requests.get("https://huggingface.co/api/whoami-v2", headers=h, timeout=30)
         j = r.json() if r.ok else {}
-        log("HF whoami:", r.status_code, j.get("name"), "type", j.get("type"), "pro", j.get("isPro"))
+        log("HF whoami:", r.status_code, j.get("name"), "type", j.get("type"), "pro", j.get("isPro"), "auth", json.dumps(j.get("auth", {}))[:300])
     except Exception as e: log("runtime err", str(e)[:150])
 def test(log=print):
     os.makedirs("out", exist_ok=True)
     runtime(log)
     try: ccmixter(10, log)
     except Exception as e: log("ccmixter failed:", str(e)[:200])
-    try:
-        p = generate("out/music_test.mp3", 0, 20, 116, log); describe(p, log); log("ACE OK: listen at /music.mp3")
-    except Exception as e: log("ACE generate failed:", type(e).__name__, str(e)[:400])
+    if os.environ.get("ACE_TEST") == "1":
+        try:
+            p = generate("out/music_test.mp3", 0, 20, 116, log); describe(p, log); log("ACE OK: listen at /music.mp3")
+        except Exception as e: log("ACE generate failed:", type(e).__name__, str(e)[:400])
 
 STYLES = [
  "uplifting cinematic electronic, atmospheric pads, deep sub bass, punchy drums, dreamy travel montage",
