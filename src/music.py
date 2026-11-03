@@ -49,9 +49,13 @@ def _path(x):
     return x
 def generate(out_path, style_idx=0, seconds=20, bpm=116, log=print, timeout=300):
     c = _client(log)
-    job = c.submit(generation_mode="custom", param_4=STYLES[style_idx % len(STYLES)] + ", instrumental, no vocals",
-                   param_5="[Instrumental]", param_6=bpm, param_15=seconds, param_16=1, param_30="mp3",
-                   api_name="/generation_wrapper")
+    info = c.view_api(return_format="dict", print_info=False)
+    params = info["named_endpoints"]["/generation_wrapper"]["parameters"]
+    over = {"generation_mode": "custom", "param_4": STYLES[style_idx % len(STYLES)] + ", instrumental, no vocals",
+            "param_5": "[Instrumental]", "param_6": bpm, "param_15": seconds, "param_16": 1, "param_30": "mp3"}
+    args = [over.get(p.get("parameter_name"), p.get("parameter_default")) for p in params]
+    log(f"ACE submit with {len(args)} args")
+    job = c.submit(*args, api_name="/generation_wrapper")
     res = job.result(timeout=timeout)
     first = _path(res[0] if isinstance(res, (list, tuple)) else res)
     status = res[10] if isinstance(res, (list, tuple)) and len(res) > 10 else ""
