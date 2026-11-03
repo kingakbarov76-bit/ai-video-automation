@@ -4,7 +4,8 @@ SPACE = os.environ.get("ACE_SPACE", "ACE-Step/Ace-Step-v1.5")
 def _client(log=print):
     from gradio_client import Client
     tok = os.environ.get("HF_TOKEN", "").strip()
-    return Client(SPACE, hf_token=tok or None, verbose=False)
+    try: return Client(SPACE, token=tok or None, verbose=False)
+    except TypeError: return Client(SPACE, hf_token=tok or None, verbose=False)
 def inspect(log=print):
     c = _client(log)
     info = c.view_api(return_format="dict", print_info=False) or {}
