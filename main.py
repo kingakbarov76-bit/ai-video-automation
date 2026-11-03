@@ -33,9 +33,11 @@ def main(mode):
     if mode == "run":
         try:
             a0 = yt.access_token(env("GOOGLE_CLIENT_ID"), env("GOOGLE_CLIENT_SECRET"), env("YT_REFRESH_TOKEN"))
-            mins = yt.minutes_since_last_upload(a0)
+            mins, n24 = yt.upload_stats(a0)
             if mins is not None and mins < 150:
                 log(f"SKIP: last upload {mins:.0f} min ago (slot already done)"); return
+            if n24 >= 6:
+                log(f"SKIP: already {n24} uploads in last 24h (daily cap)"); return
         except Exception as ex: log("upload-guard check failed, continuing:", str(ex)[:120])
     try:
         from src import music

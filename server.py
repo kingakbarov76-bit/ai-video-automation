@@ -67,4 +67,6 @@ class H(BaseHTTPRequestHandler):
         self.send("not found", 404)
     def log_message(self, *a): pass
 if __name__ == "__main__":
+    # any wake-up (cron ping, deploy, visit) starts a run; the run itself skips if the slot is already done
+    threading.Timer(40, lambda: start("run")).start()
     ThreadingHTTPServer(("0.0.0.0", int(os.environ.get("PORT", "10000"))), H).serve_forever()

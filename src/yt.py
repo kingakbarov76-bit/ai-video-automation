@@ -58,15 +58,15 @@ def my_videos_stats(access, limit=50):
                     "views": int(st.get("viewCount", 0)), "likes": int(st.get("likeCount", 0)), "comments": int(st.get("commentCount", 0))})
     return out
 
-def minutes_since_last_upload(access):
-    """Minutes since the newest upload on the channel (2 quota units). None if unknown."""
+def upload_stats(access):
+    """(minutes since newest upload, uploads in last 24h). 2 quota units."""
     import datetime
     h = {"Authorization": f"Bearer {access}"}
     r = requests.get("https://www.googleapis.com/youtube/v3/channels", headers=h, params={"part": "contentDetails", "mine": "true"}, timeout=30)
     r.raise_for_status(); up = r.json()["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
-    r = requests.get("https://www.googleapis.com/youtube/v3/playlistItems", headers=h, params={"part": "contentDetails", "playlistId": up, "maxResults": 5}, timeout=30)
+    r = requests.get("https://www.googleapis.com/youtube/v3/playlistItems", headers=h, params={"part": "contentDetails", "playlistId": up, "maxResults": 12}, timeout=30)
     r.raise_for_status(); items = r.json().get("items", [])
-    ts = [i["contentDetails"].get("videoPublishedAt") for i in items if i["contentDetails"].get("videoPublishedAt")]
-    if not ts: return None
-    newest = max(datetime.datetime.fromisoformat(t.replace("Z", "+00:00")) for t in ts)
-    return (datetime.datetime.now(datetime.timezone.utc) - newest).total_seconds() / 60
+    ts = [datetime.datetime.fromisoformat(i["contentDetails"]["videoPublishedAt"].replace("Z", "+00:00")) for i in items if i["contentDetails"].get("videoPublishedAt")]
+    if not ts: return None, 0
+    now = datetime.datetime.now(datetime.timezone.utc)
+    return (now - max(ts)).total_seconds() / 60, sum(1 for t in ts if (now - t).total_seconds() < 86400)
