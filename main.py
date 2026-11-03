@@ -55,14 +55,17 @@ def main(mode):
             try: files.append(stock.download(c, f"{work}/s{i}.mp4" if os.path.isdir(work) else _mk(work, i)))
             except Exception as ex: log(f"download {i} failed: {str(ex)[:80]}")
         if len(files) >= 9:
-            line1 = "Places on Earth that don't feel real"
+            hooks = ["Places on Earth that don't feel real"] * 3 + ["POV: you're dreaming in real life", "Is this Earth or another planet?"]
+            line1 = hooks[day % len(hooks)]
+            seq = files[:12] + [files[0]]   # loop: end on the same scene the video starts with
             rr = __import__("random").Random(day)
-            caps = {3: rr.choice(aiplaces.FEEL_MID), len(files[:13]) - 1: rr.choice(aiplaces.FEEL_END)}
+            caps = {3: rr.choice(aiplaces.FEEL_MID), len(seq) - 1: rr.choice(aiplaces.FEEL_END)}
+            log("hook:", line1)
             try:
-                render.build_beat_video2(files[:13], (line1, "Wait for the last one"), caps, None, out, work, seed=day, log=log, hd=True)
+                render.build_beat_video2(seq, (line1, "Wait for the last one"), caps, None, out, work, seed=day, log=log, hd=True)
             except Exception as ex:
                 log("HD build failed, falling back to 720p:", str(ex)[:150])
-                render.build_beat_video2(files[:13], (line1, "Wait for the last one"), caps, None, out, work, seed=day, log=log)
+                render.build_beat_video2(seq, (line1, "Wait for the last one"), caps, None, out, work, seed=day, log=log)
             synthetic = False; theme = ", ".join(names[:4]) or "Nature"
             credits = "Footage from " + ", ".join(sorted({c["credit"] for c in clips})[:8]) + " via Pexels and Pixabay."
             title_base = stock.TITLES[day % len(stock.TITLES)]
