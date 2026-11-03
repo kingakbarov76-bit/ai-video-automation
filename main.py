@@ -1,5 +1,5 @@
 import os, sys, datetime, traceback
-from src import scenes, cf_images, render, yt, stock, captions, analyze
+from src import scenes, cf_images, render, yt, stock, captions, analyze, aiplaces
 LOG = "logs/last_run.txt"
 lines = []
 def log(*a):
@@ -30,7 +30,7 @@ def main(mode):
         names, clips = stock.pick_multi(day, 13, log)
         log("themes:", names, "| first clip:", clips[0]["src"] if clips else None); return
     os.makedirs("out", exist_ok=True); out = "out/video.mp4"; work = "out/work"
-    use_ai = (day % 12 == 11) or mode == "ai"
+    use_ai = (day % 3 == 2) or mode == "ai"
     synthetic = True; credits = ""
     hook = scenes.HOOKS[day % len(scenes.HOOKS)]
     if not use_ai:
@@ -48,28 +48,28 @@ def main(mode):
             except Exception as ex: log(f"download {i} failed: {str(ex)[:80]}")
         if len(files) >= 9:
             line1 = "Places on Earth that don't feel real"
-            render.build_beat_video(files, line1, "Wait for the last one", "Follow for more", out, work, seed=day, log=log)
+            rr = __import__("random").Random(day)
+            caps = {3: rr.choice(aiplaces.FEEL_MID), len(files[:13]) - 1: rr.choice(aiplaces.FEEL_END)}
+            render.build_beat_video2(files[:13], (line1, "Wait for the last one"), caps, None, out, work, seed=day, log=log)
             synthetic = False; theme = ", ".join(names[:4]) or "Nature"
             credits = "Footage from " + ", ".join(sorted({c["credit"] for c in clips})[:8]) + " via Pexels and Pixabay."
             title_base = stock.TITLES[day % len(stock.TITLES)]
         else:
             log("not enough stock clips, falling back to AI images"); use_ai = True
     if use_ai:
-        name, desc = scenes.SCENES[day % len(scenes.SCENES)]
-        light = scenes.LIGHTS[(day // len(scenes.SCENES)) % len(scenes.LIGHTS)]
-        imgs = []
-        for i in range(4):
-            ang = scenes.ANGLES[i % len(scenes.ANGLES)]
-            prompt = f"Ultra realistic cinematic photo, {desc}, {light}, {ang}, highly detailed, vivid colors, no people, no text"
-            imgs.append(cf_images.generate(acc, tok, prompt)); log(f"image {i+1}/4 ok")
-        render.build_video(imgs, hook, out, work, per=4.0, seed=day, log=log)
-        title_base = "AI Dream Places"; theme = name
-        credits = "All visuals are AI-generated and not real photographs."
+        prompts = aiplaces.pick(day, 13); os.makedirs(work, exist_ok=True); clipf = []
+        for i, pr in enumerate(prompts):
+            img = cf_images.generate(acc, tok, pr); clipf.append(render.image_to_clip(img, f"{work}/aic{i}.mp4", work, i)); log(f"image {i+1}/13 ok")
+        rr = __import__("random").Random(day)
+        caps = {3: rr.choice(aiplaces.FEEL_MID), 8: rr.choice(aiplaces.FEEL_MID), 12: rr.choice(aiplaces.FEEL_END)}
+        render.build_beat_video2(clipf, ("Places that don't exist but should", "Wait for the last one"), caps, "AI-generated", out, work, seed=day, log=log)
+        title_base = "AI Places I Wish Were Real"; theme = "AI dream places"
+        credits = "All visuals are AI-generated and not real places."
     log("video built", os.path.getsize(out), "bytes")
     access = yt.access_token(env("GOOGLE_CLIENT_ID"), env("GOOGLE_CLIENT_SECRET"), env("YT_REFRESH_TOKEN"))
     title = (f"Places on earth that don't feel real {['😱','🤯','😍'][day % 3]} #travel #nature #world #adventure" if not use_ai
-             else f"{title_base}: {theme} #shorts #nature")[:100]
-    description = (("#travel #nature #places\n" if not use_ai else "#AIart #nature #places\n") +
+             else f"{title_base} 😍 #AIart #nature #travel #dreamy")[:100]
+    description = (("#travel #nature #places\n" if not use_ai else "#AIart #aiplaces #dreamy\n") +
                    f"Places on Earth that don't feel real. Which one is your favorite? Tell me in the comments!\n"
                    f"Featuring: {theme}.\n{credits}\nFollow for a new unreal place every day.\n"
                    "#shorts #beautifulplaces #scenery #earth #adventure #aesthetic")

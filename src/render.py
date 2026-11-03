@@ -128,3 +128,62 @@ def build_beat_video(clip_files, line1, line2, outro, out_path, workdir, bpm=116
     run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-i", wav, "-map", "0:v", "-map", "1:a",
          "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", out_path])
     return out_path
+
+
+def soft_overlay(path, hook=None, caption=None, badge=None):
+    """Small soft caption near the bottom + optional corner badge + optional big hook (first clip)."""
+    im = Image.new("RGBA", (W, H), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    if hook:
+        f1 = _font(64); y = 230
+        words = hook[0].split(); lines, c = [], ""
+        for w in words:
+            x = (c + " " + w).strip()
+            if d.textlength(x, font=f1) <= W - 80: c = x
+            else: lines.append(c); c = w
+        lines.append(c)
+        for l in lines:
+            x = (W - d.textlength(l, font=f1)) / 2
+            for dx, dy in ((-4, 0), (4, 0), (0, -4), (0, 4), (-3, -3), (3, 3), (-3, 3), (3, -3)): d.text((x + dx, y + dy), l, font=f1, fill=(0, 0, 0, 255))
+            d.text((x, y), l, font=f1, fill=(255, 226, 40, 255)); y += 80
+        f2 = _font(44); l = hook[1]; x = (W - d.textlength(l, font=f2)) / 2
+        for dx, dy in ((-3, 0), (3, 0), (0, -3), (0, 3)): d.text((x + dx, y + 10 + dy), l, font=f2, fill=(0, 0, 0, 255))
+        d.text((x, y + 10), l, font=f2, fill=(255, 255, 255, 255))
+    if caption:
+        f = _font(40); tw = d.textlength(caption, font=f); x = (W - tw) / 2; y = int(H * 0.80)
+        d.rounded_rectangle([x - 26, y - 12, x + tw + 26, y + 58], radius=30, fill=(0, 0, 0, 105))
+        d.text((x + 2, y + 2), caption, font=f, fill=(0, 0, 0, 140)); d.text((x, y), caption, font=f, fill=(255, 255, 255, 255))
+    if badge:
+        f = _font(26); tw = d.textlength(badge, font=f)
+        d.rounded_rectangle([W - tw - 56, 36, W - 24, 82], radius=22, fill=(0, 0, 0, 110)); d.text((W - tw - 40, 44), badge, font=f, fill=(255, 255, 255, 235))
+    im.save(path)
+
+def image_to_clip(img_bytes, out_mp4, workdir, idx, secs=3.4):
+    """Photo -> short vertical clip with a gentle pan/zoom (alternating direction)."""
+    import io
+    p = f"{workdir}/ai{idx}.jpg"; Image.open(io.BytesIO(img_bytes)).convert("RGB").save(p, quality=95)
+    t = f"(t/{secs})" if idx % 2 == 0 else f"(1-t/{secs})"
+    vf = (f"scale=-2:{int(H*1.18)}:flags=bilinear,crop={W}:{H}:x='(iw-{W})*{t}':y='(ih-{H})/2',fps={FPS},setsar=1,format=yuv420p")
+    run(["ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-t", str(secs), "-framerate", str(FPS), "-i", p, "-vf", vf,
+         "-c:v", "libx264", "-preset", "ultrafast", "-crf", "20", "-threads", "1", out_mp4])
+    return out_mp4
+
+def build_beat_video2(clip_files, hook, captions, badge, out_path, workdir, bpm=116.13, seed=0, log=print):
+    """Same beat structure as build_beat_video (hook 93f, cuts of 31f, last 46f) with small soft captions by clip index."""
+    from .audio import make_beat
+    os.makedirs(workdir, exist_ok=True); clips = []; last = len(clip_files) - 1
+    for i, src in enumerate(clip_files):
+        frames = 93 if i == 0 else (46 if i == last else 31)
+        cap = captions.get(i); ov = None
+        if i == 0 or cap or badge:
+            ov = f"{workdir}/ov{i}.png"; soft_overlay(ov, hook=hook if i == 0 else None, caption=cap, badge=badge)
+        c = f"{workdir}/clip{i}.mp4"
+        base = (f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps={FPS},eq=saturation=1.3:contrast=1.06:brightness=0.02,setsar=1,format=yuv420p")
+        if ov: cmd = ["ffmpeg", "-y", "-loglevel", "error", "-ss", "0.3", "-i", src, "-i", ov, "-filter_complex", f"[0:v]{base}[a];[a][1:v]overlay=0:0[v]", "-map", "[v]"]
+        else: cmd = ["ffmpeg", "-y", "-loglevel", "error", "-ss", "0.3", "-i", src, "-vf", base, "-map", "0:v"]
+        run(cmd + ["-frames:v", str(frames), "-an", "-r", str(FPS), "-c:v", "libx264", "-preset", "ultrafast", "-crf", "24", "-threads", "1", c])
+        clips.append(c); log(f"clip {i+1}/{len(clip_files)} done")
+    lst = f"{workdir}/list.txt"; open(lst, "w").write("".join(f"file '{os.path.abspath(c)}'\n" for c in clips))
+    dur = (93 + 31 * (len(clips) - 2) + 46) / FPS; wav = f"{workdir}/a.wav"; make_beat(wav, dur, bpm, seed)
+    run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-i", wav, "-map", "0:v", "-map", "1:a",
+         "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", out_path])
+    return out_path
