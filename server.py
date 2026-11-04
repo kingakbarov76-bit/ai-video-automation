@@ -11,8 +11,10 @@ def keepalive():
         except Exception: pass
 def runner(mode):
     threading.Thread(target=keepalive, daemon=True).start()
-    try: job.execute(mode)
-    finally: STATE["running"] = False
+    r = None
+    try: r = job.execute(mode)
+    finally:
+        if r != "busy": STATE["running"] = False   # a refused duplicate must not mark the real job as finished
 def start(mode):
     with LOCK:
         if STATE["running"]:

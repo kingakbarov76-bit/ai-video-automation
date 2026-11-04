@@ -334,7 +334,14 @@ def do_brand():
             "New videos every day. Subscribe and tell us which place you'd visit!")
     kw = 'travel nature "places on earth" "real places" scenery "beautiful places" dreamworld shorts'
     res = yt.brand(access, desc, kw, "out/banner.png"); log("brand:", res); return res
+import threading
+RUN_LOCK = threading.Lock()
 def execute(mode="run"):
+    if not RUN_LOCK.acquire(blocking=False):   # never two jobs at once (memory: free instance has 512 MB)
+        print(f"busy: '{mode}' ignored, another job is running", flush=True); return "busy"
+    try: return _execute(mode)
+    finally: RUN_LOCK.release()
+def _execute(mode="run"):
     lines.clear()
     try:
         if mode == "musictest":

@@ -361,9 +361,9 @@ def wide_segment(src, ss, frames, ov, out, fps=25):
     """One 1920x1080 segment, gentle fade in/out (calm long-form pacing)."""
     base = (f"scale={LW}:{LH}:force_original_aspect_ratio=increase:flags=bicubic,crop={LW}:{LH},fps={fps},"
             f"eq=saturation=1.15:contrast=1.04,fade=t=in:st=0:d=0.4,fade=t=out:st={frames / fps - 0.4:.2f}:d=0.4,setsar=1,format=yuv420p")
-    cmd = ["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{ss:.2f}", "-i", src]
-    if ov: cmd += ["-i", ov, "-filter_complex", f"[0:v]{base}[a];[a][1:v]overlay=0:0[v]", "-map", "[v]"]
-    else: cmd += ["-vf", base, "-map", "0:v"]
+    cmd = ["ffmpeg", "-y", "-loglevel", "error", "-threads", "1", "-ss", f"{ss:.2f}", "-i", src]
+    if ov: cmd += ["-i", ov, "-filter_threads", "1", "-filter_complex", f"[0:v]{base}[a];[a][1:v]overlay=0:0[v]", "-map", "[v]"]
+    else: cmd += ["-filter_threads", "1", "-vf", base, "-map", "0:v"]
     run(cmd + ["-frames:v", str(frames), "-an", "-r", str(fps), "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
                "-maxrate", "6M", "-bufsize", "12M", "-g", "60", "-threads", "1", out])
     return out

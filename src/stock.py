@@ -106,7 +106,7 @@ def _best_pexels_file(v):
     return None
 def _best_pexels_wide(v):
     fs = [f for f in v.get("video_files", []) if f.get("file_type") == "video/mp4" and f.get("width") and f.get("height")]
-    lan = [f for f in fs if f["width"] > f["height"] and f["width"] >= 1920]
+    lan = [f for f in fs if f["width"] > f["height"] and 1920 <= f["width"] <= 2560]
     return min(lan, key=lambda f: f["width"] * f["height"]) if lan else None
 def _slug(url):
     return (url or "").rstrip("/").split("/")[-1]
@@ -134,10 +134,11 @@ def place_clips(place, need, log=print, seed=0, wide=False):
                 for h in r.json().get("hits", []):
                     if h.get("duration", 0) < 5 or f"pb{h['id']}" in seen or not matches(place, h.get("tags", "")): continue
                     best = None
-                    for k in ("large", "medium"):
+                    for k in (("medium", "large") if wide else ("large", "medium")):
                         v = h["videos"].get(k) or {}
                         w, hh = v.get("width") or 0, v.get("height") or 0
-                        ok = (w > hh and w >= 1920) if wide else ((hh > w and hh >= 1280) or (w >= hh and hh >= 1440))
+                        # long-form: 1080p-1440p only (4K decode on the free 512 MB instance runs out of memory)
+                        ok = (w > hh and 1920 <= w <= 2560) if wide else ((hh > w and hh >= 1280) or (w >= hh and hh >= 1440))
                         if v.get("url") and ok: best = v; break
                     if not best: continue
                     seen.add(f"pb{h['id']}")
