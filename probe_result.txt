@@ -1,0 +1,8 @@
+== cold, curl UA
+code=200 size=24 time=12.407271
+running=False
+no run yet
+== warm, browser UA
+code=200 size=24 time=0.173048
+running=False
+no run yet
