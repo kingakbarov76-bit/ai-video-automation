@@ -24,6 +24,12 @@ def slot_info(now=None):
     if h < 4: d -= datetime.timedelta(days=1)
     k = 0 if 4 <= h < 12 else (1 if 12 <= h < 20 else 2)
     return max(0, (d - EPOCH).days * 3 + k), k, h in SLOT_HOURS
+PLAYLISTS = {
+    "list": ("Real Places That Don't Feel Real", "Real places on Earth that look unreal. Every place is named in the video, with a quick fact in the description."),
+    "single": ("Real Places That Don't Feel Real", "Real places on Earth that look unreal. Every place is named in the video, with a quick fact in the description."),
+    "dream": ("Dreamworld: AI Art Series", "Dreamworld is our AI art series of imaginary places. Every episode is an invented place with its own short story. All visuals are AI-generated."),
+    "choose": ("Which Place Would You Stay In?", "Pick your favourite dream stay and comment the number. All visuals are AI-generated."),
+}
 FOOTER = "#shorts #placesthatdontfeelreal #beautifulplaces #travel #nature"
 def music_line():
     return ("Music: original AI-generated track (ACE-Step 1.5)." if render.MUSIC_SRC else "Music: original track made for this channel.")
@@ -238,6 +244,10 @@ def main(mode):
     vid, privacy = yt.upload(_yt(), data["out"], data["title"], data["desc"], data["tags"][:15], synthetic=data["synthetic"])
     log("uploaded:", vid, "privacy:", privacy, "| title:", data["title"])
     if privacy != "public": log("WARNING: upload is not public:", privacy)
+    pl = PLAYLISTS.get(fmode)
+    if pl:
+        try: yt.add_to_playlist(_yt(), vid, *pl); log("playlist:", pl[0])
+        except Exception as ex: log("playlist add failed:", str(ex)[:120])
     save_record(vid, data)
 
 def do_brand():

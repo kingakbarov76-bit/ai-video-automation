@@ -70,3 +70,16 @@ def upload_stats(access):
     if not ts: return None, 0
     now = datetime.datetime.now(datetime.timezone.utc)
     return (now - max(ts)).total_seconds() / 60, sum(1 for t in ts if (now - t).total_seconds() < 86400)
+
+def add_to_playlist(access, video_id, title, description=""):
+    """Put the video in a public playlist with this title (created once). ~51-101 quota units."""
+    h = {"Authorization": f"Bearer {access}"}
+    r = requests.get("https://www.googleapis.com/youtube/v3/playlists", headers=h, params={"part": "snippet", "mine": "true", "maxResults": 50}, timeout=30)
+    r.raise_for_status(); pid = next((p["id"] for p in r.json().get("items", []) if p["snippet"]["title"] == title), None)
+    if not pid:
+        body = {"snippet": {"title": title, "description": description}, "status": {"privacyStatus": "public"}}
+        r = requests.post("https://www.googleapis.com/youtube/v3/playlists?part=snippet,status", headers=dict(h, **{"Content-Type": "application/json"}), data=json.dumps(body), timeout=30)
+        r.raise_for_status(); pid = r.json()["id"]
+    body = {"snippet": {"playlistId": pid, "resourceId": {"kind": "youtube#video", "videoId": video_id}}}
+    r = requests.post("https://www.googleapis.com/youtube/v3/playlistItems?part=snippet", headers=dict(h, **{"Content-Type": "application/json"}), data=json.dumps(body), timeout=30)
+    r.raise_for_status(); return pid
