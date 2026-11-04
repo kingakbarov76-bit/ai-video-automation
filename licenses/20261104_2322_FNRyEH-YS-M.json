@@ -1,0 +1,109 @@
+{
+ "video": "FNRyEH-YS-M",
+ "title": "Real places that look fake 🤯 #travel #nature #earth",
+ "music": "built-in synth",
+ "items": [
+  {
+   "place": "Preikestolen, Norway",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px17006174",
+     "page": "https://www.pexels.com/video/world-famous-preikestolen-pulpitrock-17006174/",
+     "author": "Troll Adventure"
+    },
+    {
+     "src": "pexels",
+     "id": "px17013253",
+     "page": "https://www.pexels.com/video/preikestolen-pulpitrock-winterhike-17013253/",
+     "author": "Troll Adventure"
+    }
+   ]
+  },
+  {
+   "place": "Iceland",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px29069195",
+     "page": "https://www.pexels.com/video/majestic-gullfoss-waterfall-in-iceland-29069195/",
+     "author": "Sutha Hasan"
+    },
+    {
+     "src": "pexels",
+     "id": "px29069154",
+     "page": "https://www.pexels.com/video/majestic-gullfoss-waterfall-in-iceland-29069154/",
+     "author": "Sutha Hasan"
+    }
+   ]
+  },
+  {
+   "place": "Wadi Rum, Jordan",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px33919870",
+     "page": "https://www.pexels.com/video/desert-adventure-in-wadi-rum-with-jeep-safari-33919870/",
+     "author": "Alfa"
+    },
+    {
+     "src": "pexels",
+     "id": "px38605571",
+     "page": "https://www.pexels.com/video/wadi-rum-desert-aerial-view-with-mountain-38605571/",
+     "author": "Irshad Ahmad"
+    }
+   ]
+  },
+  {
+   "place": "Palawan, Philippines",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px31549037",
+     "page": "https://www.pexels.com/video/stunning-sunset-over-el-nido-islands-31549037/",
+     "author": "Camilo Rodriguez"
+    },
+    {
+     "src": "pexels",
+     "id": "px34672211",
+     "page": "https://www.pexels.com/video/explore-the-majestic-islands-of-el-nido-palawan-34672211/",
+     "author": "Florian Delée"
+    }
+   ]
+  },
+  {
+   "place": "Zhangjiajie, China",
+   "clips": [
+    {
+     "src": "pixabay",
+     "id": "pb385520",
+     "page": "https://pixabay.com/videos/id-385520/",
+     "author": "Razzak_100"
+    },
+    {
+     "src": "pixabay",
+     "id": "pb378126",
+     "page": "https://pixabay.com/videos/id-378126/",
+     "author": "mumarmds"
+    }
+   ]
+  },
+  {
+   "place": "Iguazu Falls, Argentina & Brazil",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px26156183",
+     "page": "https://www.pexels.com/video/cataratas-do-iguacu-foz-do-iguacu-26156183/",
+     "author": "Heron Lima"
+    },
+    {
+     "src": "pexels",
+     "id": "px31660897",
+     "page": "https://www.pexels.com/video/stunning-view-of-iguazu-falls-jungle-31660897/",
+     "author": "Aleksandr Fedorov"
+    }
+   ]
+  }
+ ]
+}
