@@ -81,7 +81,11 @@ def add_to_playlist(access, video_id, title, description=""):
         r = requests.post("https://www.googleapis.com/youtube/v3/playlists?part=snippet,status", headers=dict(h, **{"Content-Type": "application/json"}), data=json.dumps(body), timeout=30)
         r.raise_for_status(); pid = r.json()["id"]
     body = {"snippet": {"playlistId": pid, "resourceId": {"kind": "youtube#video", "videoId": video_id}}}
-    r = requests.post("https://www.googleapis.com/youtube/v3/playlistItems?part=snippet", headers=dict(h, **{"Content-Type": "application/json"}), data=json.dumps(body), timeout=30)
+    import time
+    for attempt in range(4):   # a just-created playlist or just-uploaded video can answer 409 for a few seconds
+        r = requests.post("https://www.googleapis.com/youtube/v3/playlistItems?part=snippet", headers=dict(h, **{"Content-Type": "application/json"}), data=json.dumps(body), timeout=30)
+        if r.status_code != 409: break
+        time.sleep(10 * (attempt + 1))
     r.raise_for_status(); return pid
 
 def set_thumbnail(access, video_id, jpg):
