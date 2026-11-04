@@ -209,6 +209,16 @@ def fmt_long(ep, work, n_target=20, dry=False):
             dst = f"{work}/LT_{f['name']}"; open(dst, "wb").write(__import__("requests").get(f["download_url"], timeout=60).content); tracks.append(dst)
     except Exception as ex: log("long music library skipped:", str(ex)[:100])
     wav = f"{work}/Lmusic.wav"; render.long_music(wav, dur, tracks, work, seed=ep, log=log)
+    narrated = False
+    try:
+        from src import tts
+        lines = ["Real places that don't feel real. Every one of them is real. Here is where they are."] + \
+                [f"Number {i + 1}. {p['label']}. {p['f1'].rstrip('.')}. {p['f2'].rstrip('.')}." for i, (p, _) in enumerate(got)]
+        starts = [0.5] + [(intro_f + 3 * seg_f * i) / fps + 0.6 for i in range(m)]
+        nar = tts.synth(lines, f"{work}/tts", log)
+        if nar and len(nar) == len(lines):
+            mixed = f"{work}/Lmix.wav"; tts.mix(wav, nar, starts, dur, mixed, render.run); wav = mixed; narrated = True; log("voiceover mixed")
+    except Exception as ex: log("voiceover skipped:", str(ex)[:120])
     out = f"{work}/../long.mp4"
     render.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-i", wav, "-map", "0:v", "-map", "1:a",
                 "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", out])
@@ -220,6 +230,7 @@ def fmt_long(ep, work, n_target=20, dry=False):
     desc = (f"{m} places on Earth that don't feel real, but every one of them is real. Each place is named on screen with two quick facts.\n\n"
             "Chapters:\n" + "\n".join(chap) + f"\n\nThe places:\n{facts}\n\n"
             f"Footage: {', '.join(credits[:25])} via Pexels and Pixabay (licensed stock footage, edited by Dreamy Earth).\n{music_line()}\n"
+            + ("Voiceover: synthetic voice (Kokoro, open source, Apache-2.0).\n" if narrated else "") +
             "Which one would you visit first? Tell me in the comments.\n#travel #nature #placesthatdontfeelreal #beautifulplaces #earth")
     thumb = None
     try:
