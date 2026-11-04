@@ -1,0 +1,21 @@
+name: probe
+on:
+  push:
+    branches: [probe]
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          u=https://yt-auto-shorts.onrender.com/status
+          {
+          echo "== cold, curl UA"; curl -s -m 150 -A "curl/8.5.0" -H "Accept: */*" -o r1 -w "code=%{http_code} size=%{size_download} time=%{time_total}\n" $u; head -c 300 r1; echo
+          sleep 3
+          echo "== warm, browser UA"; curl -s -m 60 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" -H "Accept: text/html" -o r2 -w "code=%{http_code} size=%{size_download} time=%{time_total}\n" $u; head -c 300 r2; echo
+          } > probe_result.txt 2>&1
+          cat probe_result.txt
+          git config user.name probe; git config user.email probe@users.noreply.github.com
+          git add probe_result.txt; git commit -m "probe result"; git push
