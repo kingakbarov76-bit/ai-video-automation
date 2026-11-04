@@ -83,3 +83,10 @@ def add_to_playlist(access, video_id, title, description=""):
     body = {"snippet": {"playlistId": pid, "resourceId": {"kind": "youtube#video", "videoId": video_id}}}
     r = requests.post("https://www.googleapis.com/youtube/v3/playlistItems?part=snippet", headers=dict(h, **{"Content-Type": "application/json"}), data=json.dumps(body), timeout=30)
     r.raise_for_status(); return pid
+
+def set_thumbnail(access, video_id, jpg):
+    """Needs a phone-verified channel; returns HTTP status text."""
+    with open(jpg, "rb") as f:
+        r = requests.post(f"https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId={video_id}&uploadType=media",
+                          headers={"Authorization": f"Bearer {access}", "Content-Type": "image/jpeg"}, data=f.read(), timeout=120)
+    return f"HTTP {r.status_code}" + ("" if r.status_code == 200 else ": " + r.text[:200])

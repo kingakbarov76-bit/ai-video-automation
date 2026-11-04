@@ -321,3 +321,79 @@ def build_seq_video(segments, overlays, out_path, workdir, seed=0, log=print, hd
     run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-i", wav, "-map", "0:v", "-map", "1:a",
          "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", out_path])
     return out_path
+
+
+# ---------------- long-form (16:9) ----------------
+LW, LH = 1920, 1080
+def _wrap_bal(d, text, f, maxw):
+    lines = _wrap(d, text, f, maxw)
+    if len(lines) != 2: return lines
+    w = text.split(); best = None
+    for i in range(1, len(w)):
+        a, b = " ".join(w[:i]), " ".join(w[i:]); m = max(d.textlength(a, font=f), d.textlength(b, font=f))
+        if m <= maxw and (best is None or m < best[0]): best = (m, [a, b])
+    return best[1] if best else lines
+def card_wide(path, title=None, title2=None, label=None, num=None, fact=None):
+    im = Image.new("RGBA", (LW, LH), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    if title:
+        f1 = _font(96); y = 360
+        for l in _wrap_bal(d, title, f1, 1600):
+            _outline_text(d, ((LW - d.textlength(l, font=f1)) / 2, y), l, f1, (255, 226, 40, 255), 6); y += 118
+        if title2:
+            f2 = _font(52)
+            for l in _wrap(d, title2, f2, 1500):
+                _outline_text(d, ((LW - d.textlength(l, font=f2)) / 2, y + 16), l, f2, (255, 255, 255, 255), 4); y += 66
+    x0, y0 = 90, 830
+    if label:
+        f = _font(58); tw = d.textlength(label, font=f); nx = 0
+        if num:
+            fn = _font(54); nw = d.textlength(str(num), font=fn); nx = 110
+            d.ellipse([x0, y0 - 6, x0 + 92, y0 + 86], fill=(255, 226, 40, 240)); d.text((x0 + 46 - nw / 2, y0 + 8), str(num), font=fn, fill=(20, 20, 20, 255))
+        d.rounded_rectangle([x0 + nx - 10, y0 - 6, x0 + nx + tw + 40, y0 + 86], radius=40, fill=(0, 0, 0, 130))
+        d.text((x0 + nx + 15, y0 + 8), label, font=f, fill=(255, 255, 255, 255), stroke_width=2, stroke_fill=(0, 0, 0, 160))
+    if fact:
+        f = _font(48); lines = _wrap(d, fact, f, 1300); lh = 62; tw = max(d.textlength(l, font=f) for l in lines)
+        y = LH - 120 - lh * len(lines); d.rounded_rectangle([x0 - 10, y - 18, x0 + tw + 40, y + lh * len(lines) + 4], radius=30, fill=(0, 0, 0, 120))
+        for i, l in enumerate(lines): d.text((x0 + 15, y + i * lh), l, font=f, fill=(255, 255, 255, 255), stroke_width=2, stroke_fill=(0, 0, 0, 160))
+    im.save(path)
+
+def wide_segment(src, ss, frames, ov, out, fps=25):
+    """One 1920x1080 segment, gentle fade in/out (calm long-form pacing)."""
+    base = (f"scale={LW}:{LH}:force_original_aspect_ratio=increase:flags=bicubic,crop={LW}:{LH},fps={fps},"
+            f"eq=saturation=1.15:contrast=1.04,fade=t=in:st=0:d=0.4,fade=t=out:st={frames / fps - 0.4:.2f}:d=0.4,setsar=1,format=yuv420p")
+    cmd = ["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{ss:.2f}", "-i", src]
+    if ov: cmd += ["-i", ov, "-filter_complex", f"[0:v]{base}[a];[a][1:v]overlay=0:0[v]", "-map", "[v]"]
+    else: cmd += ["-vf", base, "-map", "0:v"]
+    run(cmd + ["-frames:v", str(frames), "-an", "-r", str(fps), "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
+               "-maxrate", "6M", "-bufsize", "12M", "-g", "60", "-threads", "1", out])
+    return out
+
+def long_music(out_wav, dur, tracks, workdir, seed=0, log=print):
+    """Chain library tracks with crossfades (or calm pads in small chunks) up to `dur` seconds, loudness -14 LUFS."""
+    os.makedirs(workdir, exist_ok=True); parts = list(tracks)
+    if not parts:
+        from .audio import make_pad
+        for i in range(int(dur // 28) + 2):
+            p = f"{workdir}/pad{i}.wav"; make_pad(p, 30.0, seed + i); parts.append(p)
+    seq, total = [], 0.0
+    while total < dur + 5:
+        for p in parts:
+            seq.append(p); total += 27.0 if not tracks else 55.0
+            if total >= dur + 5: break
+    cmd = ["ffmpeg", "-y", "-loglevel", "error"]
+    for p in seq: cmd += ["-i", p]
+    fc, prev = "", "[0:a]"
+    for i in range(1, len(seq)):
+        fc += f"{prev}[{i}:a]acrossfade=d=3[a{i}];"; prev = f"[a{i}]"
+    fc += f"{prev}apad,atrim=0:{dur:.2f},afade=t=in:d=2,afade=t=out:st={dur - 4:.2f}:d=4,loudnorm=I=-14:TP=-1.5[out]"
+    run(cmd + ["-filter_complex", fc, "-map", "[out]", "-ar", "44100", "-ac", "2", out_wav]); return out_wav
+
+def thumbnail(frame_src, ss, text1, text2, out_jpg, workdir):
+    p = f"{workdir}/thumb_raw.jpg"
+    run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{ss:.2f}", "-i", frame_src, "-frames:v", "1",
+         "-vf", "scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,eq=saturation=1.35:contrast=1.1", p])
+    im = Image.open(p).convert("RGBA"); d = ImageDraw.Draw(im)
+    f1 = _font(112); f2 = _font(60)
+    _outline_text(d, (60, 380), text1, f1, (255, 226, 40, 255), 8)
+    _outline_text(d, (64, 520), text2, f2, (255, 255, 255, 255), 6)
+    im.convert("RGB").save(out_jpg, quality=92); return out_jpg

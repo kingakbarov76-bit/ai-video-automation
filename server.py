@@ -18,7 +18,8 @@ def start(mode):
         if STATE["running"]:
             # a second wake-up ping (or the boot timer) while a run is already
             # going is just a duplicate: answer fast, queue nothing
-            if mode == "run" and STATE.get("last_mode") != "run" and not STATE.get("queued"):
+            long_job = time.time() - STATE.get("last_start", 0) > 20 * 60   # e.g. the weekly long video
+            if mode == "run" and (STATE.get("last_mode") != "run" or long_job) and not STATE.get("queued"):
                 STATE["queued"] = True
                 def later():
                     while STATE["running"]: time.sleep(5)
@@ -43,7 +44,7 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/brand": return self.send(start("brand"))
         if u.path == "/ai": return self.send(start("ai"))
         if u.path == "/musictest": return self.send(start("musictest"))
-        if u.path.strip("/") in ("placescan", "dry_list", "dry_single", "dry_dream", "dry_choose"): return self.send(start(u.path.strip("/")))
+        if u.path.strip("/") in ("placescan", "dry_list", "dry_single", "dry_dream", "dry_choose", "dry_long"): return self.send(start(u.path.strip("/")))
         if u.path == "/music.mp3":
             p = "out/music_test.mp3"
             if not os.path.exists(p): return self.send("hali yo'q", 404)

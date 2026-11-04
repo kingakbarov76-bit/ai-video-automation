@@ -18,6 +18,10 @@ def _yt():
 # ---- schedule: 3 uploads a day at 04:00, 12:00, 20:00 Tashkent (UTC+5) ----
 SLOT_HOURS = (4, 12, 20)
 EPOCH = datetime.date(2026, 11, 4)
+LONG_DAY, LONG_HOUR = 5, 16   # Saturday 16:00 Tashkent
+def is_long_slot(now=None):
+    loc = (now or datetime.datetime.utcnow()) + datetime.timedelta(hours=5)
+    return loc.weekday() == LONG_DAY and loc.hour == LONG_HOUR
 def slot_info(now=None):
     loc = (now or datetime.datetime.utcnow()) + datetime.timedelta(hours=5)
     h = loc.hour; d = loc.date()
@@ -28,6 +32,7 @@ PLAYLISTS = {
     "list": ("Real Places That Don't Feel Real", "Real places on Earth that look unreal. Every place is named in the video, with a quick fact in the description."),
     "single": ("Real Places That Don't Feel Real", "Real places on Earth that look unreal. Every place is named in the video, with a quick fact in the description."),
     "dream": ("Dreamworld: AI Art Series", "Dreamworld is our AI art series of imaginary places. Every episode is an invented place with its own short story. All visuals are AI-generated."),
+    "long": ("Real Places That Don't Feel Real", "Real places on Earth that look unreal. Every place is named in the video, with a quick fact in the description."),
     "choose": ("Which Place Would You Stay In?", "Pick your favourite dream stay and comment the number. All visuals are AI-generated."),
 }
 FOOTER = "#shorts #placesthatdontfeelreal #beautifulplaces #travel #nature"
@@ -37,8 +42,8 @@ def music_line():
 class Cursor:
     """Walks through each source clip so repeated uses show new footage instead of the same second."""
     def __init__(self): self.pos = {}
-    def take(self, c, frames):
-        need = frames / 30 + 0.2; p = self.pos.get(c["id"], 0.4)
+    def take(self, c, frames, fps=30):
+        need = frames / fps + 0.2; p = self.pos.get(c["id"], 0.4)
         if p + need > c["dur"]: p = 0.4 if 0.4 + need <= c["dur"] else max(0.0, c["dur"] - need)
         self.pos[c["id"]] = p + need + 0.3; return p
 def _download(c, path):
@@ -163,6 +168,68 @@ def fmt_choice(ep, work):
     return dict(out=out, title=title, desc=desc, tags=["which place would you stay in", "ai art", "dream places", "would you rather"],
                 synthetic=True, rec=[{"choice": [n for n, _ in ch]}], theme=", ".join(n for n, _ in ch))
 
+def fmt_long(ep, work, n_target=20, dry=False):
+    """Weekly 16:9 long video: N named real places, ~25 s each, name + two facts on screen, chapters in the description."""
+    W = ep // 21; order = places.order(303); n = len(order); fps = 25; seg_f = 208   # 3 x 8.3 s per place (25 fps)
+    intro_f = 250; got = []; segs = []; cur = Cursor(); os.makedirs(work, exist_ok=True)
+    for j in range(n):
+        if len(got) >= n_target: break
+        pl = places.PLACES[order[(W * 7 + j) % n]]
+        cl = [c for c in stock.place_clips(pl, 4, log, seed=ep + j, wide=True) if c["dur"] >= 7][:4]
+        files = []
+        for i, c in enumerate(cl):
+            if len(files) >= 2: break
+            try: files.append((_download(c, f"{work}/L{len(got)}_{i}.mp4"), c))
+            except Exception as ex: log(f"  download failed: {str(ex)[:80]}")
+        if not files: continue
+        k = len(got) + 1; got.append((pl, files))
+        if k == 1:   # intro on the first place's footage
+            ov = f"{work}/Lintro.png"; render.card_wide(ov, title="Real Places That Don't Feel Real", title2="Every one of them is real. Here is where they are.")
+            p0, c0 = files[0]; first_raw = (p0, c0); segs.append(render.wide_segment(p0, cur.take(c0, intro_f, fps), intro_f, ov, f"{work}/W000.mp4"))
+        for si in range(3):
+            path, c = files[si % len(files)]; ov = f"{work}/Lc{k}_{si}.png"
+            if si == 0: render.card_wide(ov, label=pl["label"], num=k)
+            else: render.card_wide(ov, fact=pl["f1"] if si == 1 else pl["f2"])
+            segs.append(render.wide_segment(path, cur.take(c, seg_f, fps), seg_f, ov, f"{work}/W{k:02d}{si}.mp4"))
+        for pth, _ in files[(1 if k == 1 else 0):]:   # keep place 1's main clip for the outro and thumbnail
+            try: os.remove(pth)
+            except OSError: pass
+        log(f"long: place {k}/{n_target} {pl['label']} done")
+    m = len(got)
+    if m < (3 if dry else 12): return None
+    # outro: back to place 1 with a question
+    pl1, _ = got[0]; ov = f"{work}/Lout.png"; render.card_wide(ov, title="Which one would you visit first?", title2="Tell me in the comments. New places every day.")
+    segs.append(render.wide_segment(first_raw[0], 0.4, 200, ov, f"{work}/W999.mp4"))
+    dur = (intro_f + 3 * seg_f * m + 200) / fps
+    lst = f"{work}/Wlist.txt"; open(lst, "w").write("".join(f"file '{os.path.abspath(x)}'\n" for x in segs))
+    tracks = []
+    try:
+        from src import music
+        for f in music.lib_list()[:10]:
+            dst = f"{work}/LT_{f['name']}"; open(dst, "wb").write(__import__("requests").get(f["download_url"], timeout=60).content); tracks.append(dst)
+    except Exception as ex: log("long music library skipped:", str(ex)[:100])
+    wav = f"{work}/Lmusic.wav"; render.long_music(wav, dur, tracks, work, seed=ep, log=log)
+    out = f"{work}/../long.mp4"
+    render.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-i", wav, "-map", "0:v", "-map", "1:a",
+                "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", out])
+    def ts(sec): sec = int(sec); return f"{sec // 60}:{sec % 60:02d}"
+    chap = ["0:00 Intro"] + [f"{ts((intro_f + 3 * seg_f * i) / fps)} {i + 1}. {p['label']}" for i, (p, _) in enumerate(got)] + [f"{ts((intro_f + 3 * seg_f * m) / fps)} Which one would you visit?"]
+    facts = "\n".join(f"{i + 1}. {p['label']}: {p['f1']}. {p['f2']}." for i, (p, _) in enumerate(got))
+    credits = sorted({c["credit"] for _, fs in got for _, c in fs})
+    title = f"{m} Real Places That Don't Feel Real 🌍 Nature & Travel"
+    desc = (f"{m} places on Earth that don't feel real, but every one of them is real. Each place is named on screen with two quick facts.\n\n"
+            "Chapters:\n" + "\n".join(chap) + f"\n\nThe places:\n{facts}\n\n"
+            f"Footage: {', '.join(credits[:25])} via Pexels and Pixabay (licensed stock footage, edited by Dreamy Earth).\n{music_line()}\n"
+            "Which one would you visit first? Tell me in the comments.\n#travel #nature #placesthatdontfeelreal #beautifulplaces #earth")
+    thumb = None
+    try:
+        thumb = render.thumbnail(first_raw[0], 2.0, f"{m} REAL PLACES", "that don't feel real", f"{work}/thumb.jpg", work)
+    except Exception as ex: log("thumbnail failed:", str(ex)[:100])
+    tags = ["places on earth that don't feel real", "real places that look fake", "most beautiful places on earth", "travel", "nature", "relaxing"] + [p["label"].split(",")[0] for p, _ in got[:8]]
+    rec = [{"place": p["label"], "clips": [{"src": c["src"], "id": c["id"], "page": c["page"], "author": c["credit"]} for _, c in fs]} for p, fs in got]
+    log(f"long video: {m} places, {dur:.0f} s")
+    return dict(out=out, title=title, desc=desc, tags=tags, synthetic=False, rec=rec, theme="long", thumb=thumb)
+
 def fmt_generic(ep, work):
     """Old mixed-stock format, used only if named-place footage can't be found."""
     names, clips = stock.pick_multi(ep, 18, log); files = []
@@ -213,7 +280,8 @@ def main(mode):
         try:
             mins, n24 = yt.upload_stats(_yt())
             if mins is not None and mins < 150: log(f"SKIP: last upload {mins:.0f} min ago (slot already done)"); return
-            if not in_slot and mins is not None and mins < 450: log(f"SKIP: not an upload slot (last upload {mins:.0f} min ago)"); return
+            if is_long_slot(): mode = "long"
+            elif not in_slot and mins is not None and mins < 450: log(f"SKIP: not an upload slot (last upload {mins:.0f} min ago)"); return
             if n24 >= 10: log(f"SKIP: already {n24} uploads in last 24h (safety cap)"); return
         except Exception as ex: log("upload-guard check failed, continuing:", str(ex)[:120])
     try:
@@ -225,15 +293,17 @@ def main(mode):
         if not dry: music.maybe_generate_daily(log)
         render.MUSIC_SRC = music.pick_track(ep, "out/work", log)
     except Exception as ex: log("music step skipped:", str(ex)[:120]); render.MUSIC_SRC = None
+    if mode == "long": fmode = "long"
     if fmode == "run": fmode = ["list", "single", "dream" if (ep // 3) % 2 == 0 else "choose"][k]
     fmode = {"ai": "dream"}.get(fmode, fmode)
     log(f"slot ep={ep} k={k} format={fmode}" + (" (dry run)" if dry else ""))
     work = "out/work"; os.makedirs(work, exist_ok=True)
-    fn = {"list": fmt_list, "single": fmt_single, "dream": fmt_dream, "choose": fmt_choice}[fmode]
-    data = fn(ep, work)
+    fn = {"list": fmt_list, "single": fmt_single, "dream": fmt_dream, "choose": fmt_choice, "long": fmt_long}[fmode]
+    data = fmt_long(ep, work, n_target=3, dry=True) if (fmode == "long" and dry) else fn(ep, work)
     if data is None and fmode in ("list", "single"):
         log(f"{fmode}: not enough named-place footage, trying the other real format")
         data = (fmt_single if fmode == "list" else fmt_list)(ep, work) or fmt_generic(ep, work)
+    if data is None and fmode == "long": log("long: not enough wide footage, skipping this week"); return
     if data is None: raise RuntimeError("no footage for any format")
     log("video built", os.path.getsize(data["out"]), "bytes |", data["title"])
     if dry:
@@ -244,6 +314,9 @@ def main(mode):
     vid, privacy = yt.upload(_yt(), data["out"], data["title"], data["desc"], data["tags"][:15], synthetic=data["synthetic"])
     log("uploaded:", vid, "privacy:", privacy, "| title:", data["title"])
     if privacy != "public": log("WARNING: upload is not public:", privacy)
+    if data.get("thumb"):
+        try: log("thumbnail:", yt.set_thumbnail(_yt(), vid, data["thumb"]))
+        except Exception as ex: log("thumbnail set failed:", str(ex)[:120])
     pl = PLAYLISTS.get(fmode)
     if pl:
         try: yt.add_to_playlist(_yt(), vid, *pl); log("playlist:", pl[0])
