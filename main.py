@@ -357,6 +357,11 @@ def _execute(mode="run"):
     try:
         if mode == "musictest":
             from src import music; music.test(log)
+        elif mode == "ttstest":
+            import resource
+            from src import tts
+            r = tts.synth(["Number one. Hallstatt, Austria. A village on a lake."], "/tmp/ttst", log)
+            log("ttstest result:", r, "peak child RSS MB:", resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss // 1024)
         elif mode == "brand": do_brand()
         else: main(mode)
         log("RESULT: OK")

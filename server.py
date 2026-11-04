@@ -46,6 +46,7 @@ class H(BaseHTTPRequestHandler):
         if u.path == "/brand": return self.send(start("brand"))
         if u.path == "/ai": return self.send(start("ai"))
         if u.path == "/musictest": return self.send(start("musictest"))
+        if u.path == "/ttstest": return self.send(start("ttstest"))
         if u.path.strip("/") in ("placescan", "dry_list", "dry_single", "dry_dream", "dry_choose", "dry_long", "long"): return self.send(start(u.path.strip("/")))
         if u.path == "/music.mp3":
             p = "out/music_test.mp3"
