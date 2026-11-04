@@ -170,7 +170,7 @@ def fmt_choice(ep, work):
 
 def fmt_long(ep, work, n_target=20, dry=False):
     """Weekly 16:9 long video: N named real places, ~25 s each, name + two facts on screen, chapters in the description."""
-    W = ep // 21; order = places.order(303); n = len(order); fps = 25; seg_f = 208   # 3 x 8.3 s per place (25 fps)
+    W = ep // 3; order = places.order(303);   # W = days since start: each long video starts further along the list n = len(order); fps = 25; seg_f = 208   # 3 x 8.3 s per place (25 fps)
     intro_f = 250; got = []; segs = []; cur = Cursor(); os.makedirs(work, exist_ok=True)
     for j in range(n):
         if len(got) >= n_target: break
@@ -308,7 +308,8 @@ def main(mode):
     log("video built", os.path.getsize(data["out"]), "bytes |", data["title"])
     if dry:
         from src import music
-        music._put(f"previews/{fmode}.mp4", open(data["out"], "rb").read(), f"preview {fmode}")
+        if os.path.getsize(data["out"]) < 45 * 1048576: music._put(f"previews/{fmode}.mp4", open(data["out"], "rb").read(), f"preview {fmode}")
+        else: log("preview too big for GitHub, video file not saved")
         music._put(f"previews/{fmode}.txt", (data["title"] + "\n\n" + data["desc"]).encode(), f"preview {fmode} text")
         log("preview saved to music-library/previews/"); return
     vid, privacy = yt.upload(_yt(), data["out"], data["title"], data["desc"], data["tags"][:15], synthetic=data["synthetic"])
