@@ -120,15 +120,18 @@ def fmt_single(ep, work):
         if len(files) >= 3: break
     else: return None
     if len(files) < 3: return None
-    k = len(files); segs = []; ovs = []; cur = Cursor(); fr = render.FRAMES13
-    for i in range(13):
-        if i == 12: path, c = files[0]; off = 0.4
+    k = len(files); segs = []; ovs = []; cur = Cursor()
+    nseg = [9, 13, 19][(ep // 3) % 3]            # ~12 s, 16 s, 22 s: vary lengths to learn what keeps viewers
+    fr = render.FRAMES13 if nseg == 13 else [93] + [31] * (nseg - 2) + [46]
+    mid_split = 2 + (nseg - 3) // 2
+    for i in range(nseg):
+        if i == nseg - 1: path, c = files[0]; off = 0.4
         else: path, c = files[i % k]; off = cur.take(c, fr[i])
         segs.append((path, off)); ov = f"{work}/card{i}.png"
         if i == 0: render.card(ov, hook="This place doesn't look real", hook2="But it is.", label=pl["label"])
         elif i == 1: render.card(ov, label=pl["label"])
-        elif i <= 6: render.card(ov, fact=pl["f1"])
-        elif i <= 11: render.card(ov, fact=pl["f2"])
+        elif i < mid_split: render.card(ov, fact=pl["f1"])
+        elif i < nseg - 1: render.card(ov, fact=pl["f2"])
         else: render.card(ov, cta="Would you go here?")
         ovs.append(ov)
     log("hook: This place doesn't look real |", pl["label"])
