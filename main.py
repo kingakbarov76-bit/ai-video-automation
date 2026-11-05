@@ -97,6 +97,12 @@ def fmt_list(ep, work):
     rec = [{"place": p["label"], "clips": [{"src": c["src"], "id": c["id"], "page": c["page"], "author": c["credit"]} for _, c in fs]} for p, fs in got]
     return dict(out=out, title=title, desc=desc, tags=tags, synthetic=False, rec=rec, theme=", ".join(names))
 
+HOOKS = [("This place doesn't look real", "But it is."),
+         ("Would you live here for a year?", "No internet. Just this."),
+         ("Pick: stay here or go home?", "Be honest."),
+         ("Is this place even real?", "Yes. Here is where.")]
+CTAS = ["Would you go here? Comment YES", "Comment YES if you would go", "Drop your answer below", "Would you go here?"]
+
 def _crashed(ep, label):
     try: return label in open(f"/tmp/inflight_{ep}.txt").read().split("\n")
     except OSError: return False
@@ -128,11 +134,11 @@ def fmt_single(ep, work):
         if i == nseg - 1: path, c = files[0]; off = 0.4
         else: path, c = files[i % k]; off = cur.take(c, fr[i])
         segs.append((path, off)); ov = f"{work}/card{i}.png"
-        if i == 0: render.card(ov, hook="This place doesn't look real", hook2="But it is.", label=pl["label"])
+        if i == 0: render.card(ov, hook=HOOKS[ep % len(HOOKS)][0], hook2=HOOKS[ep % len(HOOKS)][1], label=pl["label"])
         elif i == 1: render.card(ov, label=pl["label"])
         elif i < mid_split: render.card(ov, fact=pl["f1"])
         elif i < nseg - 1: render.card(ov, fact=pl["f2"])
-        else: render.card(ov, cta="Would you go here?")
+        else: render.card(ov, cta=CTAS[ep % len(CTAS)])
         ovs.append(ov)
     log("hook: This place doesn't look real |", pl["label"])
     out = f"{work}/../video.mp4"; render.build_seq_video(segs, ovs, out, work, seed=ep, log=log, hd=True)
