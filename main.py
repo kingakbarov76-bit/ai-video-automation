@@ -96,11 +96,20 @@ def fmt_list(ep, work):
     rec = [{"place": p["label"], "clips": [{"src": c["src"], "id": c["id"], "page": c["page"], "author": c["credit"]} for _, c in fs]} for p, fs in got]
     return dict(out=out, title=title, desc=desc, tags=tags, synthetic=False, rec=rec, theme=", ".join(names))
 
+def _crashed(ep, label):
+    try: return label in open(f"/tmp/inflight_{ep}.txt").read().split("\n")
+    except OSError: return False
+def _mark(ep, label):
+    try: open(f"/tmp/inflight_{ep}.txt", "a").write(label + "\n")
+    except OSError: pass
+
 def fmt_single(ep, work):
     """One real place: name + two facts on screen."""
     D = ep // 3; order = places.order(202); n = len(order)
     for j in range(12):
         pl = places.PLACES[order[(D + j * 7) % n]]
+        if _crashed(ep, pl["label"]): log(f"single: skipping {pl['label']} (crashed the server before)"); continue
+        _mark(ep, pl["label"])
         cl = stock.place_clips(pl, 6, log, seed=ep + j); files = []
         for i, c in enumerate(cl[:8]):
             if len(files) >= 5: break

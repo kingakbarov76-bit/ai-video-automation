@@ -99,9 +99,9 @@ def download(c, path, max_mb=80):
 # ---------------- place-matched clips (label must match the footage) ----------------
 def _best_pexels_file(v):
     fs = [f for f in v.get("video_files", []) if f.get("file_type") == "video/mp4" and f.get("width") and f.get("height")]
-    por = [f for f in fs if f["height"] > f["width"] and f["height"] >= 1280]
+    por = [f for f in fs if f["height"] > f["width"] and 1280 <= f["height"] <= 2560]
     if por: return min(por, key=lambda f: (0 if f["height"] >= 1920 else 1, f["width"] * f["height"]))
-    lan = [f for f in fs if f["width"] >= f["height"] and f["height"] >= 1440]   # 9:16 crop of >=1440p keeps detail
+    lan = [f for f in fs if f["width"] >= f["height"] and f["height"] >= 1440 and f["width"] <= 2560]   # 9:16 crop of >=1440p keeps detail
     if lan: return min(lan, key=lambda f: f["width"] * f["height"])
     return None
 def _best_pexels_wide(v):
@@ -138,7 +138,7 @@ def place_clips(place, need, log=print, seed=0, wide=False):
                         v = h["videos"].get(k) or {}
                         w, hh = v.get("width") or 0, v.get("height") or 0
                         # long-form: 1080p-1440p only (4K decode on the free 512 MB instance runs out of memory)
-                        ok = (w > hh and 1920 <= w <= 2560) if wide else ((hh > w and hh >= 1280) or (w >= hh and hh >= 1440))
+                        ok = (w > hh and 1920 <= w <= 2560) if wide else ((hh > w and 1280 <= hh <= 2560) or (w >= hh and hh >= 1440 and w <= 2560))
                         if v.get("url") and ok: best = v; break
                     if not best: continue
                     seen.add(f"pb{h['id']}")
