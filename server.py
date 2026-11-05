@@ -35,7 +35,10 @@ def start(mode):
 class H(BaseHTTPRequestHandler):
     def send(self, body, code=200, ctype="text/plain; charset=utf-8"):
         b = body.encode(); self.send_response(code); self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(b))); self.end_headers(); self.wfile.write(b)
+        self.send_header("Content-Length", str(len(b))); self.end_headers()
+        if not getattr(self, "_head", False): self.wfile.write(b)
+    def do_HEAD(self):   # UptimeRobot probes with HEAD; treat it like GET (no body)
+        self._head = True; self.do_GET()
     def do_GET(self):
         u = urllib.parse.urlparse(self.path); q = urllib.parse.parse_qs(u.query)
         if u.path == "/": return self.send("ok")
