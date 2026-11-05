@@ -1,0 +1,109 @@
+{
+ "video": "pzmSzk7w2RQ",
+ "title": "Iguazu Falls to Ha Long Bay: 6 places that look unreal 🤯",
+ "music": "built-in synth",
+ "items": [
+  {
+   "place": "Iguazu Falls, Argentina & Brazil",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px31660897",
+     "page": "https://www.pexels.com/video/stunning-view-of-iguazu-falls-jungle-31660897/",
+     "author": "Aleksandr Fedorov"
+    },
+    {
+     "src": "pexels",
+     "id": "px26156183",
+     "page": "https://www.pexels.com/video/cataratas-do-iguacu-foz-do-iguacu-26156183/",
+     "author": "Heron Lima"
+    }
+   ]
+  },
+  {
+   "place": "Grand Canyon, USA",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px38282654",
+     "page": "https://www.pexels.com/video/stunning-havasu-falls-in-grand-canyon-38282654/",
+     "author": "Alex Moliski"
+    },
+    {
+     "src": "pexels",
+     "id": "px38282285",
+     "page": "https://www.pexels.com/video/beautiful-havasu-falls-in-grand-canyon-38282285/",
+     "author": "Alex Moliski"
+    }
+   ]
+  },
+  {
+   "place": "Salar de Uyuni, Bolivia",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px29998892",
+     "page": "https://www.pexels.com/video/stunning-aerial-view-of-bolivia-s-uyuni-salt-flats-29998892/",
+     "author": "Florian Delée"
+    },
+    {
+     "src": "pexels",
+     "id": "px33603729",
+     "page": "https://www.pexels.com/video/stunning-drone-view-of-uyuni-salt-flats-33603729/",
+     "author": "Florian Delée"
+    }
+   ]
+  },
+  {
+   "place": "Great Barrier Reef, Australia",
+   "clips": [
+    {
+     "src": "pixabay",
+     "id": "pb386374",
+     "page": "https://pixabay.com/videos/id-386374/",
+     "author": "Razzak_100"
+    },
+    {
+     "src": "pixabay",
+     "id": "pb386380",
+     "page": "https://pixabay.com/videos/id-386380/",
+     "author": "Razzak_100"
+    }
+   ]
+  },
+  {
+   "place": "Mount Kilimanjaro, Tanzania",
+   "clips": [
+    {
+     "src": "pixabay",
+     "id": "pb252127",
+     "page": "https://pixabay.com/videos/id-252127/",
+     "author": "DragonPiao"
+    },
+    {
+     "src": "pixabay",
+     "id": "pb252128",
+     "page": "https://pixabay.com/videos/id-252128/",
+     "author": "DragonPiao"
+    }
+   ]
+  },
+  {
+   "place": "Ha Long Bay, Vietnam",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px36646390",
+     "page": "https://www.pexels.com/video/scenic-sunset-at-ha-long-bay-with-boat-36646390/",
+     "author": "Tripatpal Singh"
+    },
+    {
+     "src": "pexels",
+     "id": "px36671180",
+     "page": "https://www.pexels.com/video/cruise-boat-in-scenic-ha-long-bay-vietnam-36671180/",
+     "author": "Florian Delée"
+    }
+   ]
+  }
+ ]
+}
