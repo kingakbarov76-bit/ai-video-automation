@@ -1,0 +1,42 @@
+{
+ "video": "aGt8PqOtccU",
+ "title": "Bora Bora doesn't look real 🤯 #borabora #travel #nature #earth",
+ "music": "built-in synth",
+ "items": [
+  {
+   "place": "Bora Bora, French Polynesia",
+   "clips": [
+    {
+     "src": "pixabay",
+     "id": "pb352156",
+     "page": "https://pixabay.com/videos/id-352156/",
+     "author": "doktorkleinmusic"
+    },
+    {
+     "src": "pixabay",
+     "id": "pb386226",
+     "page": "https://pixabay.com/videos/id-386226/",
+     "author": "Razzak_100"
+    },
+    {
+     "src": "pexels",
+     "id": "px27975189",
+     "page": "https://www.pexels.com/video/palmen-in-der-lagune-von-bora-bora-27975189/",
+     "author": "Chuck Henjes"
+    },
+    {
+     "src": "pexels",
+     "id": "px27975259",
+     "page": "https://www.pexels.com/video/ruhiger-palmenstrand-in-der-lagune-von-bora-bora-27975259/",
+     "author": "Chuck Henjes"
+    },
+    {
+     "src": "pixabay",
+     "id": "pb343672",
+     "page": "https://pixabay.com/videos/id-343672/",
+     "author": "doktorkleinmusic"
+    }
+   ]
+  }
+ ]
+}
