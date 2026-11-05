@@ -85,9 +85,10 @@ def fmt_list(ep, work):
     out = f"{work}/../video.mp4"; render.build_seq_video(segs, ovs, out, work, seed=ep, log=log, hd=True)
     names = [p["label"] for p, _ in got]; credits = sorted({c["credit"] for _, fs in got for _, c in fs})
     emo = ["🤯", "😱", "😍"][ep % 3]
-    title = [f"Places on Earth that don't feel real {emo} #travel #nature #earth",
-             f"Real places that look fake {emo} #travel #nature #earth",
-             f"{m} real places that look unreal {emo} #travel #nature #earth"][(ep // 3) % 3]
+    s0 = names[0].split(",")[0]; s1 = names[1].split(",")[0]
+    title = [f"{s0}, {s1} and {m - 2} more places that don't feel real {emo}",
+             f"{m} real places that look fake: {s0}, {s1}... {emo}",
+             f"{s0} to {names[-1].split(',')[0]}: {m} places that look unreal {emo}"][(ep // 3) % 3]
     body = "\n".join(f"{i + 1}. {p['label']}: {p['f1']}. {p['f2']}." for i, (p, _) in enumerate(got))
     desc = (f"Places on Earth that don't feel real, but every one of them is real. Which one would you visit? Comment the number 👇\n\n{body}\n\n"
             f"Footage: {', '.join(credits[:10])} via Pexels and Pixabay (licensed stock footage, edited by Dreamy Earth).\n{music_line()}\n"

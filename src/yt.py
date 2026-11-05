@@ -6,6 +6,11 @@ def access_token(client_id, client_secret, refresh_token):
     if r.status_code != 200: raise RuntimeError(f"token refresh failed HTTP {r.status_code}: {r.text[:300]}")
     return r.json()["access_token"]
 def upload(access, path, title, description, tags, privacy="public", synthetic=True, category="19"):
+    import re
+    _h = re.findall(r"#[A-Za-z]\w*", title)          # keep titles clean: hashtags go to the description (max 3)
+    if _h:
+        title = re.sub(r"\s*#[A-Za-z]\w*", "", title).strip()
+        description = description.rstrip() + "\n" + " ".join(_h[:3])
     meta = {"snippet": {"title": title[:100], "description": description[:4900], "tags": tags, "categoryId": category},
             "status": {"privacyStatus": privacy, "selfDeclaredMadeForKids": False, "containsSyntheticMedia": synthetic}}
     size = os.path.getsize(path)
