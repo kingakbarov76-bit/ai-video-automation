@@ -1,0 +1,109 @@
+{
+ "video": "a-8_PBMKf5c",
+ "title": "Ha Long Bay, Bora Bora and 4 more places that don't feel real 🤯",
+ "music": "built-in synth",
+ "items": [
+  {
+   "place": "Ha Long Bay, Vietnam",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px36646390",
+     "page": "https://www.pexels.com/video/scenic-sunset-at-ha-long-bay-with-boat-36646390/",
+     "author": "Tripatpal Singh"
+    },
+    {
+     "src": "pexels",
+     "id": "px30391311",
+     "page": "https://www.pexels.com/video/aerial-view-of-ha-long-bay-at-sunset-30391311/",
+     "author": "Sergey Guk"
+    }
+   ]
+  },
+  {
+   "place": "Bora Bora, French Polynesia",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px27975259",
+     "page": "https://www.pexels.com/video/ruhiger-palmenstrand-in-der-lagune-von-bora-bora-27975259/",
+     "author": "Chuck Henjes"
+    },
+    {
+     "src": "pexels",
+     "id": "px27975189",
+     "page": "https://www.pexels.com/video/palmen-in-der-lagune-von-bora-bora-27975189/",
+     "author": "Chuck Henjes"
+    }
+   ]
+  },
+  {
+   "place": "Sahara Desert",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px36259626",
+     "page": "https://www.pexels.com/video/serene-sahara-desert-landscape-at-daytime-36259626/",
+     "author": "Nirjhar Basak"
+    },
+    {
+     "src": "pexels",
+     "id": "px36204316",
+     "page": "https://www.pexels.com/video/sahara-desert-landscape-with-blue-skies-36204316/",
+     "author": "Nirjhar Basak"
+    }
+   ]
+  },
+  {
+   "place": "Giant's Causeway, Northern Ireland",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px34672828",
+     "page": "https://www.pexels.com/video/giant-s-causeway-coastal-scenery-at-day-34672828/",
+     "author": "Sutha Hasan"
+    },
+    {
+     "src": "pexels",
+     "id": "px34672831",
+     "page": "https://www.pexels.com/video/majestic-coastal-view-of-giant-s-causeway-34672831/",
+     "author": "Sutha Hasan"
+    }
+   ]
+  },
+  {
+   "place": "Dead Sea",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px30133679",
+     "page": "https://www.pexels.com/video/aerial-view-of-coastal-erosion-at-the-dead-sea-30133679/",
+     "author": "Samir Smier"
+    },
+    {
+     "src": "pexels",
+     "id": "px30133534",
+     "page": "https://www.pexels.com/video/aerial-view-of-dead-sea-coastline-geology-30133534/",
+     "author": "Samir Smier"
+    }
+   ]
+  },
+  {
+   "place": "Torres del Paine, Chile",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px35564896",
+     "page": "https://www.pexels.com/video/scenic-trek-through-torres-del-paine-35564896/",
+     "author": "Florian Delée"
+    },
+    {
+     "src": "pexels",
+     "id": "px39941217",
+     "page": "https://www.pexels.com/video/majestic-white-horse-in-torres-del-paine-wilderness-39941217/",
+     "author": "Joshua Woroniecki"
+    }
+   ]
+  }
+ ]
+}
