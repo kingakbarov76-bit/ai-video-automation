@@ -195,7 +195,8 @@ def fmt_ambient(ep, work):
     title = f"{short} 🌿 calm nature sounds to relax #relaxing #nature #asmr #{pl['tag']}"
     desc = (f"{pl['label']}: {pl['f1']}. {pl['f2']}.\nCalm nature to relax, study or fall asleep to.\n\n"
             f"Footage: {', '.join(credits)} via Pexels and Pixabay (licensed stock footage, edited by Dreamy Earth).\n"
-            "Sound: nature ambience and soft music synthesized for this channel (not a field recording at the location).\n"
+            + ("Music: 'First Light Particles' by Yoiyami (CC0, public domain). " if ep % 2 == 1 else "Music: soft piano synthesized for this channel. ")
+            + "Nature ambience synthesized for this channel (not a field recording at the location).\n"
             f"Follow for more calm nature.\n#relaxing #nature #asmr #{pl['tag']} #shorts")
     tags = [short, pl["label"], "relaxing nature sounds", "nature sounds", "asmr nature", "calm", "relaxing music", "sleep sounds"]
     rec = [{"place": pl["label"], "ambient": kind, "clips": [{"src": c["src"], "id": c["id"], "page": c["page"], "author": c["credit"]} for _, c in files]}]

@@ -174,6 +174,15 @@ def build(files, out, work, kind, label_png=None, seed=0, log=print):
     if total < 14: return None
     lst = f"{work}/amblist.txt"; open(lst, "w").write("".join(f"file '{os.path.abspath(s)}'\n" for s in segs))
     wav = f"{work}/amb.wav"; make_sound(wav, total, kind, seed, plan)
+    trk = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "first_light_particles.mp3")
+    if seed % 2 == 1 and os.path.exists(trk):      # alternate: ready-made CC0 piano (Yoiyami) vs. own synthesized music
+        try:
+            off = 4 + (seed * 7) % 70
+            _run(["ffmpeg", "-y", "-loglevel", "error", "-ss", str(off), "-t", f"{total:.2f}", "-i", trk, "-af",
+                  f"afade=t=in:d=2,afade=t=out:st={max(total-3,1):.2f}:d=3,loudnorm=I=-19:TP=-2", "-ar", "44100", f"{work}/trk.wav"])
+            wav = f"{work}/trk.wav"; log("ambient music: CC0 track (Yoiyami)")
+        except Exception as e:
+            log(f"track mix failed, using synth: {e}")
     _run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-i", wav, "-map", "0:v", "-map", "1:a", "-c:v", "copy",
           "-af", "loudnorm=I=-17:TP=-1.5:LRA=9", "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-shortest", "-movflags", "+faststart", out])
     return out
