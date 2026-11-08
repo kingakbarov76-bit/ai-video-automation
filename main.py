@@ -137,7 +137,7 @@ def fmt_single(ep, work):
     if len(files) < 3: return None
     k = len(files); segs = []; ovs = []; cur = Cursor()
     BF = 62                                      # 4 beats (~2 s) per shot: calmer pacing than 1-second cuts
-    nseg = [6, 8, 10][(ep // 3) % 3]             # ~13 s, 17 s, 21 s: vary lengths to learn what keeps viewers
+    nseg = [6, 7, 8][(ep // 3) % 3]             # ~13 s, 15 s, 17 s (small channels that broke out use 14-26 s)
     fr = [93] + [BF] * (nseg - 2) + [46]
     mid_split = 2 + (nseg - 1) // 2
     for i in range(nseg):
@@ -158,7 +158,7 @@ def fmt_single(ep, work):
                 starts=[0.3, 93 / F, (93 + BF * (mid_split - 2)) / F, (93 + BF * (nseg - 2)) / F])
     render.build_seq_video(segs, ovs, out, work, seed=ep, log=log, hd=True, narr=(narr if os.environ.get("VOICEOVER") == "1" else None), beat_frames=BF)
     emo = ["😱", "🤯", "😍"][ep % 3]
-    tt = ["{s} doesn't look real {e}", "Have you seen {s}? {e}", "{s} is a real place {e}", "Would you visit {s}? {e}"][(ep // 2) % 4]
+    tt = ["{s} doesn't look real {e}", "{s}: one of the most beautiful places on earth {e}", "{s} is a real place {e}", "Would you visit {s}? {e}"][(ep // 2) % 4]
     title = tt.format(s=short, e=emo) + f" #{pl['tag']} #travel #nature #earth"
     credits = sorted({c["credit"] for _, c in files})
     desc = (f"{pl['label']}: {pl['f1']}. {pl['f2']}.\nWould you go here? Tell me in the comments 👇\n\n"
