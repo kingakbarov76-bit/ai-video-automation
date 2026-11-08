@@ -85,7 +85,7 @@ def _piano(f, dur=3.4, vel=1.0):
         fk = f * k * np.sqrt(1 + 0.0004 * k * k)
         if fk < 9000: y += amp * np.sin(2 * np.pi * fk * tt + k) * np.exp(-tt * dec)
     return y * np.minimum(tt / 0.006, 1) * vel
-def _music(n, rng, seed, bpm=58):
+def _music(n, rng, seed, bpm=44):
     """Slow, warm, beatless piano music: sustained pad + gentle arpeggio + sparse pentatonic melody in a major key, with a big soft reverb."""
     beat = 60 / bpm; bar = 4 * beat; root = [48, 50, 53, 55, 57][seed % 5]
     mf = lambda m: 440 * 2 ** ((m - 69) / 12)
@@ -93,18 +93,20 @@ def _music(n, rng, seed, bpm=58):
     pent = [0, 2, 4, 7, 9]; idx = 7; out = np.zeros(n); pad = np.zeros(n); t = np.arange(n) / SR
     for b in range(int(n / SR / bar) + 2):
         ch, off = prog[(b + seed // 5) % 4]; t0 = b * bar; base = root + off
-        _add(out, _piano(mf(base - 12), 4.2), int(t0 * SR), 0.34)                                     # bass note
-        for k, i in enumerate([0, 1, 2, 3, 2, 1, 2, 1]):                                              # slow rolling arpeggio, one note per half beat... every beat
-            _add(out, _piano(mf(base + 12 + ch[i % 4]), 3.0), int((t0 + k * beat * 0.5) * SR), rng.uniform(0.11, 0.16))
+        _add(out, _piano(mf(base - 12), 5.2), int(t0 * SR), 0.26)                                     # bass note
+        for k, i in enumerate([0, 2, 1, 3]):                                                          # very slow arpeggio: one soft note per beat
+            _add(out, _piano(mf(base + ch[i % 4]), 4.0), int((t0 + k * beat) * SR), rng.uniform(0.08, 0.12))
         for step in range(4):                                                                         # melody: sparse, stepwise
-            if rng.random() < 0.62:
-                idx = int(np.clip(idx + rng.choice([-2, -1, 1, 2]), 5, 11)); m = root + 12 * (idx // 5) + pent[idx % 5] + 12
-                _add(out, _piano(mf(m), 3.6), int((t0 + step * beat + rng.choice([0, 0, 0.5 * beat])) * SR), rng.uniform(0.2, 0.3))
+            if rng.random() < 0.34:
+                idx = int(np.clip(idx + rng.choice([-1, 1]), 5, 10)); m = root + 12 * (idx // 5) + pent[idx % 5]
+                _add(out, _piano(mf(m), 5.0), int((t0 + step * beat) * SR), rng.uniform(0.12, 0.18))
         a0 = int(t0 * SR); a1 = min(n, int((t0 + bar + 1.5) * SR))
         if a0 < n:
-            tt = t[a0:a1] - t[a0]; env = np.minimum(tt / 1.6, 1) * np.clip((tt[-1] - tt) / 1.6, 0, 1)
-            for c in ch[:3]: pad[a0:a1] += np.sin(2 * np.pi * mf(base + c - 12) * tt + rng.uniform(0, 6)) * env * 0.08
-    m = _reverb(out + pad, rng, rt=3.2, wet=0.38); return np.tanh(m / (np.abs(m).max() + 1e-9) * 1.4) * 0.9
+            tt = t[a0:a1] - t[a0]; env = np.minimum(tt / 2.2, 1) * np.clip((tt[-1] - tt) / 2.2, 0, 1)
+            for c in ch[:3]: pad[a0:a1] += np.sin(2 * np.pi * mf(base + c - 12) * tt + rng.uniform(0, 6)) * env * 0.14
+    m = _reverb(out + pad, rng, rt=4.0, wet=0.45)
+    X = np.fft.rfft(m); f = np.fft.rfftfreq(len(m), 1 / SR); X *= 1 / (1 + (f / 1800.0) ** 4)          # soften: roll off the highs for a warm, quiet tone
+    m = np.fft.irfft(X, len(m)); return np.tanh(m / (np.abs(m).max() + 1e-9) * 1.2) * 0.8
 def _plan_env(n, plan, dur):
     """Per-sample 'mood' curves from what each clip looks like: sunny/bright -> birds, dull/grey -> more wind, bluish -> more water."""
     sun, blue = np.zeros(n), np.zeros(n); pos = 0.0
@@ -125,12 +127,12 @@ def make_sound(path, dur, kind, seed=0, plan=None):
         water = np.stack([_channel(kind, n, rng) for _ in range(2)], 1) * (0.45 + 0.55 * blue)[:, None]
         nat = wind * 0.55 + water
     else: nat = wind
-    nat = np.stack([_reverb(nat[:, 0], rng, 1.4, 0.18), _reverb(nat[:, 1], rng, 1.4, 0.18)], 1) * 0.16   # only a faint natural bed under the music
+    nat = np.stack([_reverb(nat[:, 0], rng, 1.4, 0.18), _reverb(nat[:, 1], rng, 1.4, 0.18)], 1) * 0.12   # only a faint natural bed under the music
     d = BIRDS.get(kind, 0)
     if d:
         bl, br = _birds(n, rng, d); bl, br = _reverb(bl, rng, 1.8, 0.35), _reverb(br, rng, 1.8, 0.35)
         nat += np.stack([bl, br], 1) * 1.6 * (0.1 + 0.9 * sun)[:, None]
-    mus = _music(n, rng, seed); mus2 = np.stack([mus, np.roll(mus, 400)], 1) * 0.8
+    mus = _music(n, rng, seed); mus2 = np.stack([mus, np.roll(mus, 400)], 1) * 0.62
     st = nat + mus2
     t = np.arange(n) / SR; st *= np.minimum(1, np.minimum(t / 1.5, (dur - t) / 2.0))[:, None]
     st = np.tanh(st * 0.9) * 0.6
