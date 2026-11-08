@@ -301,7 +301,7 @@ def card(path, hook=None, hook2=None, label=None, num=None, fact=None, cta=None,
     im.save(path)
 
 FRAMES13 = [93] + [31] * 11 + [46]   # 480 frames = 16.0 s at 116.13 BPM (cuts on the beat)
-def build_seq_video(segments, overlays, out_path, workdir, seed=0, log=print, hd=True, bpm=116.13):
+def build_seq_video(segments, overlays, out_path, workdir, seed=0, log=print, hd=True, bpm=116.13, narr=None):
     """segments: list of (src, start_seconds); overlays: list of png paths (or None); 13 segments -> 16 s."""
     os.makedirs(workdir, exist_ok=True); clips = []; ow, oh = (HW, HH) if hd else (W, H)
     frames = FRAMES13 if len(segments) == 13 else [93] + [31] * (len(segments) - 2) + [46]
@@ -318,6 +318,16 @@ def build_seq_video(segments, overlays, out_path, workdir, seed=0, log=print, hd
         clips.append(c); log(f"segment {i+1}/{len(segments)} done")
     lst = f"{workdir}/seqlist.txt"; open(lst, "w").write("".join(f"file '{os.path.abspath(c)}'\n" for c in clips))
     dur = sum(frames) / FPS; wav = f"{workdir}/a.wav"; _music(wav, dur, bpm, seed, log)
+    if narr:                                  # optional free voiceover (Kokoro); any failure = no narration
+        try:
+            from src import tts
+            nw = tts.synth(narr["lines"], f"{workdir}/tts", log, timeout=200)
+            if nw and len(nw) == len(narr["lines"]):
+                plan = tts.schedule(nw, [s for s in narr["starts"]], dur)
+                if plan:
+                    mixed = f"{workdir}/amix.wav"; tts.mix(wav, [p for p, _ in plan], [s for _, s in plan], dur, mixed, run)
+                    wav = mixed; narr["done"] = True; log(f"voiceover mixed ({len(plan)}/{len(nw)} lines)")
+        except Exception as ex: log("voiceover skipped:", str(ex)[:120])
     run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-i", wav, "-map", "0:v", "-map", "1:a",
          "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", out_path])
     return out_path

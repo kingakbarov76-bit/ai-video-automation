@@ -148,12 +148,18 @@ def fmt_single(ep, work):
         else: render.card(ov, cta=CTAS[ep % len(CTAS)])
         ovs.append(ov)
     log("hook: This place doesn't look real |", pl["label"])
-    out = f"{work}/../video.mp4"; render.build_seq_video(segs, ovs, out, work, seed=ep, log=log, hd=True)
-    short = pl["label"].split(",")[0]; emo = ["😱", "🤯", "😍"][ep % 3]
+    out = f"{work}/../video.mp4"
+    short = pl["label"].split(",")[0]
+    h1, h2 = HOOKS[ep % len(HOOKS)]; F = render.FPS
+    narr = dict(lines=[f"{h1} {h2}", f"{short}. {pl['f1'].rstrip('.')}.", f"{pl['f2'].rstrip('.')}.", CTAS[ep % len(CTAS)].replace("Comment YES", "Comment yes")],
+                starts=[0.3, 93 / F, (93 + 31 * (mid_split - 1)) / F, (93 + 31 * (nseg - 2)) / F])
+    render.build_seq_video(segs, ovs, out, work, seed=ep, log=log, hd=True, narr=narr)
+    emo = ["😱", "🤯", "😍"][ep % 3]
     title = f"{short} doesn't look real {emo} #{pl['tag']} #travel #nature #earth"
     credits = sorted({c["credit"] for _, c in files})
     desc = (f"{pl['label']}: {pl['f1']}. {pl['f2']}.\nWould you go here? Tell me in the comments 👇\n\n"
             f"Footage: {', '.join(credits)} via Pexels and Pixabay (licensed stock footage, edited by Dreamy Earth).\n{music_line()}\n"
+            + ("Voiceover: synthetic voice (Kokoro, open source).\n" if narr.get("done") else "") +
             f"Follow for real places that look unreal.\n{FOOTER} #{pl['tag']}")
     tags = [short, pl["label"], "places on earth that don't feel real", "unreal places", "travel", "nature", "beautiful places"]
     rec = [{"place": pl["label"], "clips": [{"src": c["src"], "id": c["id"], "page": c["page"], "author": c["credit"]} for _, c in files]}]

@@ -26,6 +26,16 @@ def synth(lines, out_dir, log=print, timeout=600):
     except Exception as ex:
         log("tts error:", str(ex)[:150]); return None
 
+def schedule(wavs, starts, dur, gap=0.25):
+    """Place narration lines at their wanted starts without overlapping; drop lines that would run past the video."""
+    import soundfile as sf
+    out = []; t = 0.0
+    for p, s in zip(wavs, starts):
+        d = sf.info(p).duration; s = max(s, t)
+        if s + d > dur - 0.2: continue
+        out.append((p, s)); t = s + d + gap
+    return out
+
 def mix(music_wav, narr, starts, dur, out_wav, run):
     """Narration wavs placed at `starts` (seconds) over the music (music lowered to 40%)."""
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", music_wav]
