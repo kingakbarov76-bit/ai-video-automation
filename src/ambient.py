@@ -104,6 +104,18 @@ def make_sound(path, dur, kind, seed=0):
     w = wave.open(path, "wb"); w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR); w.writeframes((st * 32767).astype(np.int16).tobytes()); w.close()
 
 # ---------------- video ----------------
+def _avg_rgb(path):
+    r = subprocess.run(["ffmpeg", "-loglevel", "error", "-ss", "2", "-i", path, "-frames:v", "1", "-vf", "scale=1:1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True)
+    return tuple(r.stdout[:3]) if len(r.stdout) >= 3 else (128, 128, 128)
+def pick_coherent(files, k=3):
+    """Same place can be filmed in different weather/seasons: keep the clips whose overall colour and brightness are closest."""
+    if len(files) <= k: return files
+    import itertools
+    cols = [_avg_rgb(p) for p, _ in files]
+    def spread(ix): return max(sum((cols[a][c] - cols[b][c]) ** 2 for c in range(3)) for a, b in itertools.combinations(ix, 2))
+    best = min(itertools.combinations(range(len(files)), k), key=spread)
+    return [files[i] for i in best]
+
 def _run(cmd):
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode: raise RuntimeError(r.stderr[-600:])

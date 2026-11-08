@@ -180,13 +180,14 @@ def fmt_ambient(ep, work):
         _mark(ep, pl["label"])
         cl = [c for c in stock.place_clips(pl, 8, log, seed=ep + j) if c["dur"] >= 8][:4]; files = []
         for i, c in enumerate(cl):
-            if len(files) >= 3: break
+            if len(files) >= 4: break
             try: files.append((_download(c, f"{work}/amb_src{i}.mp4"), c))
             except Exception as ex: log(f"  download failed: {str(ex)[:80]}")
         log(f"ambient {pl['label']}: {len(cl)} calm clips, {len(files)} downloaded")
         if files: break
         _unmark(ep, pl["label"])
     else: return None
+    files = ambient.pick_coherent(files, 3)
     kind = ambient.kind_for(pl["label"]); ov = f"{work}/amb_label.png"; render.card(ov, label=pl["label"], out_size=(720, 1280))
     out = f"{work}/../video.mp4"
     if not ambient.build(files, out, work, kind, label_png=ov, seed=ep, log=log): return None
