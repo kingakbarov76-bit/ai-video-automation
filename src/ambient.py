@@ -44,15 +44,16 @@ def _bubbles(n, rng, per_s):
     return out
 def _channel(kind, n, rng):
     t = np.arange(n) / SR
-    if kind == "stream":
-        a = _shaped(n, rng, 250, 6500, 0.3) * (0.5 + 0.5 * _env(n, rng, 2.5, 0.8)) * 0.8 + _shaped(n, rng, 900, 3800, 0.2) * 0.3 * _env(n, rng, 6, 0.9) + _bubbles(n, rng, 60) * 0.5
+    if kind == "stream":      # flowing water: broadband rush made of several bands, each with its own fast random movement (no drips)
+        a = sum(_shaped(n, rng, lo, hi, 0.2) * (0.45 + 0.55 * _env(n, rng, rate, 0.85)) * g
+                for lo, hi, rate, g in ((120, 400, 4, 0.5), (350, 900, 9, 0.7), (800, 2000, 14, 0.9), (1800, 4200, 20, 0.8), (3800, 8000, 28, 0.45)))
     elif kind == "ocean":
         ph = rng.uniform(0, 6); swell = (0.5 + 0.5 * np.sin(2 * np.pi * t / 10.5 + ph)) ** 2.2 * 0.85 + 0.15
         foam = (0.5 + 0.5 * np.sin(2 * np.pi * t / 10.5 + ph - 0.9)) ** 3
         a = _shaped(n, rng, 100, 2200, 0.8) * swell + _shaped(n, rng, 1500, 8000, 0.3) * 0.35 * foam
-    elif kind == "lake":
-        a = _shaped(n, rng, 70, 800, 0.8) * (0.3 + 0.5 * _env(n, rng, 0.1, 0.9)) + _shaped(n, rng, 180, 2000, 0.8) * 0.16 * (0.5 + 0.5 * np.sin(2 * np.pi * t / 6.5 + rng.uniform(0, 6))) ** 2 \
-            + _bubbles(n, rng, 3) * 0.3
+    elif kind == "lake":      # shore lapping: soft low wash that swells and fades, plus a faint far-off ripple hiss. No drips.
+        per = rng.uniform(5.5, 8.0); sw = (0.5 + 0.5 * np.sin(2 * np.pi * t / per + rng.uniform(0, 6))) ** 1.6 * (0.6 + 0.4 * _env(n, rng, 0.3, 0.8)) + 0.12
+        a = _shaped(n, rng, 90, 1300, 0.9) * sw + _shaped(n, rng, 900, 3800, 0.5) * 0.14 * sw ** 1.5 * (0.6 + 0.4 * _env(n, rng, 3, 0.8)) + _shaped(n, rng, 60, 600, 0.9) * 0.2 * _env(n, rng, 0.1, 0.9)
     else:
         a = _shaped(n, rng, 70, 1000, 0.8) * (0.3 + 0.7 * _env(n, rng, 0.12, 0.9)) + _shaped(n, rng, 2500, 7000, 0.6) * 0.07 * _env(n, rng, 0.4, 0.95)   # gusts + a little leaf rustle
     return a / (np.abs(a).max() + 1e-9)
