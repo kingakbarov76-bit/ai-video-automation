@@ -100,7 +100,9 @@ def fmt_list(ep, work):
 HOOKS = [("This place doesn't look real", "But it is."),
          ("Would you live here for a year?", "No internet. Just this."),
          ("Pick: stay here or go home?", "Be honest."),
-         ("Is this place even real?", "Yes. Here is where.")]
+         ("Is this place even real?", "Yes. Here is where."),
+         ("Is this AI?", "No. It's a real place."),
+         ("You won't believe this exists", "But it does.")]
 CTAS = ["Would you go here? Comment YES", "Comment YES if you would go", "Drop your answer below", "Would you go here?"]
 
 def _crashed(ep, label):
@@ -154,9 +156,10 @@ def fmt_single(ep, work):
     h1, h2 = HOOKS[ep % len(HOOKS)]; F = render.FPS
     narr = dict(lines=[f"{h1} {h2}", f"{short}. {pl['f1'].rstrip('.')}.", f"{pl['f2'].rstrip('.')}.", CTAS[ep % len(CTAS)].replace("Comment YES", "Comment yes")],
                 starts=[0.3, 93 / F, (93 + BF * (mid_split - 2)) / F, (93 + BF * (nseg - 2)) / F])
-    render.build_seq_video(segs, ovs, out, work, seed=ep, log=log, hd=True, narr=narr, beat_frames=BF)
+    render.build_seq_video(segs, ovs, out, work, seed=ep, log=log, hd=True, narr=(narr if os.environ.get("VOICEOVER") == "1" else None), beat_frames=BF)
     emo = ["😱", "🤯", "😍"][ep % 3]
-    title = f"{short} doesn't look real {emo} #{pl['tag']} #travel #nature #earth"
+    tt = ["{s} doesn't look real {e}", "Have you seen {s}? {e}", "{s} is a real place {e}", "Would you visit {s}? {e}"][(ep // 2) % 4]
+    title = tt.format(s=short, e=emo) + f" #{pl['tag']} #travel #nature #earth"
     credits = sorted({c["credit"] for _, c in files})
     desc = (f"{pl['label']}: {pl['f1']}. {pl['f2']}.\nWould you go here? Tell me in the comments 👇\n\n"
             f"Footage: {', '.join(credits)} via Pexels and Pixabay (licensed stock footage, edited by Dreamy Earth).\n{music_line()}\n"
