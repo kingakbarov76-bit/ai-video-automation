@@ -91,12 +91,31 @@ def _music(n, rng, seed):
         _add(bells, (np.sin(2 * np.pi * f * tt) + 0.22 * np.sin(2 * np.pi * 2.0 * f * tt) + 0.08 * np.sin(2 * np.pi * 3.01 * f * tt)) * np.exp(-tt * 1.6) * np.minimum(tt / 0.01, 1), int(tb * SR), rng.uniform(0.18, 0.32))
         tb += rng.uniform(3.2, 7.5)
     m = _reverb(pad * 0.55 + bells, rng, rt=3.0, wet=0.5); return m / (np.abs(m).max() + 1e-9)
-def make_sound(path, dur, kind, seed=0):
+def _plan_env(n, plan, dur):
+    """Per-sample 'mood' curves from what each clip looks like: sunny/bright -> birds, dull/grey -> more wind, bluish -> more water."""
+    sun, blue = np.zeros(n), np.zeros(n); pos = 0.0
+    for d, (r, g, b) in plan:
+        i0, i1 = int(pos / dur * n), int(min(dur, pos + d) / dur * n); pos += d
+        br = (r + g + b) / 765; sat = (max(r, g, b) - min(r, g, b)) / max(max(r, g, b), 1)
+        sun[i0:i1] = np.clip((br - 0.32) / 0.3, 0, 1) * np.clip(sat / 0.28, 0, 1); blue[i0:i1] = np.clip((b - (r + g) / 2) / 35, 0, 1)
+    sun[int(pos / dur * n):] = sun[max(0, int(pos / dur * n) - 1)]; blue[int(pos / dur * n):] = blue[max(0, int(pos / dur * n) - 1)]
+    k = int(2.0 * SR)                                              # 2 s glide between moods so cuts do not jump
+    def sm(x):
+        c = np.cumsum(np.pad(x, (k // 2 + 1, k // 2), mode="edge")); return (c[k:k + n] - c[:n]) / k
+    return sm(sun), sm(blue)
+def make_sound(path, dur, kind, seed=0, plan=None):
     n = int(SR * dur); rng = np.random.default_rng(seed + 1000)
-    ch = [_reverb(_channel(kind, n, rng), rng, rt=1.4, wet=0.18) for _ in range(2)]
-    nat = np.stack(ch, 1) * 0.85
+    sun, blue = _plan_env(n, plan, dur) if plan else (np.full(n, 0.6), np.full(n, 0.6))
+    wind = np.stack([_channel("wind", n, rng) for _ in range(2)], 1) * (1.05 - 0.45 * sun)[:, None]
+    if kind != "wind":
+        water = np.stack([_channel(kind, n, rng) for _ in range(2)], 1) * (0.45 + 0.55 * blue)[:, None]
+        nat = wind * 0.55 + water
+    else: nat = wind
+    nat = np.stack([_reverb(nat[:, 0], rng, 1.4, 0.18), _reverb(nat[:, 1], rng, 1.4, 0.18)], 1) * 0.85
     d = BIRDS.get(kind, 0)
-    if d: bl, br = _birds(n, rng, d); bl, br = _reverb(bl, rng, 1.8, 0.35), _reverb(br, rng, 1.8, 0.35); nat += np.stack([bl, br], 1) * 1.6
+    if d:
+        bl, br = _birds(n, rng, d); bl, br = _reverb(bl, rng, 1.8, 0.35), _reverb(br, rng, 1.8, 0.35)
+        nat += np.stack([bl, br], 1) * 1.6 * (0.1 + 0.9 * sun)[:, None]
     mus = _music(n, rng, seed); mus2 = np.stack([mus, np.roll(mus, 400)], 1) * 0.32
     st = nat + mus2
     t = np.arange(n) / SR; st *= np.minimum(1, np.minimum(t / 1.5, (dur - t) / 2.0))[:, None]
@@ -121,7 +140,7 @@ def _run(cmd):
     if r.returncode: raise RuntimeError(r.stderr[-600:])
 def build(files, out, work, kind, label_png=None, seed=0, log=print):
     """files: [(path, clip)] of ONE place. Each segment fades softly in/out; 720x1280 keeps the free CPU fast. The place name shows for ~4 s."""
-    segs, total, i = [], 0.0, 0
+    segs, total, i, plan = [], 0.0, 0, []
     for path, c in files:
         if total >= MAX_S - 0.5: break
         d = round(min(SEG_S, c["dur"] - 0.6, MAX_S - total), 2)
@@ -135,10 +154,10 @@ def build(files, out, work, kind, label_png=None, seed=0, log=print):
                     f"[0:v]{base}[a];[1:v]format=rgba,fade=t=in:st=1.0:d=0.8:alpha=1,fade=t=out:st=4.4:d=0.8:alpha=1[o];[a][o]overlay=0:0:shortest=1,format=yuv420p[v]", "-map", "[v]"]
         else: cmd += ["-vf", base + ",format=yuv420p"]
         _run(cmd + ["-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-threads", "1", seg])
-        segs.append(seg); total += d; i += 1; log(f"ambient segment {i} done ({total:.0f} s)")
+        segs.append(seg); plan.append((d, _avg_rgb(path))); total += d; i += 1; log(f"ambient segment {i} done ({total:.0f} s)")
     if total < 14: return None
     lst = f"{work}/amblist.txt"; open(lst, "w").write("".join(f"file '{os.path.abspath(s)}'\n" for s in segs))
-    wav = f"{work}/amb.wav"; make_sound(wav, total, kind, seed)
+    wav = f"{work}/amb.wav"; make_sound(wav, total, kind, seed, plan)
     _run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-i", wav, "-map", "0:v", "-map", "1:a", "-c:v", "copy",
           "-af", "loudnorm=I=-17:TP=-1.5:LRA=9", "-c:a", "aac", "-b:a", "192k", "-ar", "44100", "-shortest", "-movflags", "+faststart", out])
     return out
