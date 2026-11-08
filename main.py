@@ -171,28 +171,34 @@ def fmt_single(ep, work):
     return dict(out=out, title=title, desc=desc, tags=tags, synthetic=False, rec=rec, theme=pl["label"])
 
 def fmt_ambient(ep, work):
-    """~1 min relaxing nature Short: slow clips + synthesized ambience, no text."""
+    """~30 s calm nature Short: ONE named place, slow clips, synthesized ambience + soft music, place name shown briefly."""
     from src import ambient
-    sc = ambient.scene_for(ep); cl = ambient.clips(sc, 5, log, seed=ep); files = []
-    for i, c in enumerate(cl):
-        if len(files) >= 5: break
-        if _crashed(ep, c["id"]): log(f"ambient: skipping {c['id']} (crashed the server before)"); continue
-        _mark(ep, c["id"])
-        try: files.append((_download(c, f"{work}/amb_src{i}.mp4"), c))
-        except Exception as ex: log(f"  download failed: {str(ex)[:80]}"); _unmark(ep, c["id"])
-    log(f"ambient {sc['key']}: {len(cl)} matching clips, {len(files)} downloaded")
-    if len(files) < 4: return None
+    pool = ambient.calm_places(places); D = ep // 3
+    for j in range(8):
+        pl = pool[(D * 3 + j * 5) % len(pool)]
+        if _crashed(ep, pl["label"]): log(f"ambient: skipping {pl['label']} (crashed the server before)"); continue
+        _mark(ep, pl["label"])
+        cl = [c for c in stock.place_clips(pl, 8, log, seed=ep + j) if c["dur"] >= 8][:4]; files = []
+        for i, c in enumerate(cl):
+            if len(files) >= 3: break
+            try: files.append((_download(c, f"{work}/amb_src{i}.mp4"), c))
+            except Exception as ex: log(f"  download failed: {str(ex)[:80]}")
+        log(f"ambient {pl['label']}: {len(cl)} calm clips, {len(files)} downloaded")
+        if files: break
+        _unmark(ep, pl["label"])
+    else: return None
+    kind = ambient.kind_for(pl["label"]); ov = f"{work}/amb_label.png"; render.card(ov, label=pl["label"], out_size=(720, 1280))
     out = f"{work}/../video.mp4"
-    if not ambient.build(files, out, work, sc, seed=ep, log=log): return None
-    credits = sorted({c["credit"] for _, c in files})
-    title = f"{sc['title']} {sc['emo']} relaxing nature sounds #relaxing #nature #asmr #{sc['tag']}"
-    desc = (f"{sc['title']}: calm nature to relax, study or fall asleep to.\n\n"
+    if not ambient.build(files, out, work, kind, label_png=ov, seed=ep, log=log): return None
+    short = pl["label"].split(",")[0]; credits = sorted({c["credit"] for _, c in files})
+    title = f"{short} 🌿 calm nature sounds to relax #relaxing #nature #asmr #{pl['tag']}"
+    desc = (f"{pl['label']}: {pl['f1']}. {pl['f2']}.\nCalm nature to relax, study or fall asleep to.\n\n"
             f"Footage: {', '.join(credits)} via Pexels and Pixabay (licensed stock footage, edited by Dreamy Earth).\n"
-            "Sound: nature ambience synthesized for this channel (not a field recording at the location).\n"
-            f"Follow for more calm nature.\n#relaxing #nature #asmr #{sc['tag']} #shorts")
-    tags = [sc["title"], "relaxing nature sounds", "nature sounds", "asmr nature", "relaxing", "calm", sc["key"], "sleep sounds"]
-    rec = [{"ambient": sc["key"], "clips": [{"src": c["src"], "id": c["id"], "page": c["page"], "author": c["credit"]} for _, c in files]}]
-    return dict(out=out, title=title, desc=desc, tags=tags, synthetic=False, rec=rec, theme=sc["title"])
+            "Sound: nature ambience and soft music synthesized for this channel (not a field recording at the location).\n"
+            f"Follow for more calm nature.\n#relaxing #nature #asmr #{pl['tag']} #shorts")
+    tags = [short, pl["label"], "relaxing nature sounds", "nature sounds", "asmr nature", "calm", "relaxing music", "sleep sounds"]
+    rec = [{"place": pl["label"], "ambient": kind, "clips": [{"src": c["src"], "id": c["id"], "page": c["page"], "author": c["credit"]} for _, c in files]}]
+    return dict(out=out, title=title, desc=desc, tags=tags, synthetic=False, rec=rec, theme=pl["label"])
 
 def fmt_dream(ep, work):
     """Dreamworld: one invented, named place per episode, with lore. Always labeled AI-generated."""
