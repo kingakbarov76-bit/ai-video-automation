@@ -110,6 +110,12 @@ def _mark(ep, label):
     try: open(f"/tmp/inflight_{ep}.txt", "a").write(label + "\n")
     except OSError: pass
 
+def _unmark(ep, label):
+    try:
+        p = f"/tmp/inflight_{ep}.txt"; ls = [x for x in open(p).read().split("\n") if x and x != label]
+        open(p, "w").write("".join(x + "\n" for x in ls))
+    except OSError: pass
+
 def fmt_single(ep, work):
     """One real place: name + two facts on screen."""
     D = ep // 3; order = places.order(202); n = len(order)
@@ -124,6 +130,7 @@ def fmt_single(ep, work):
             except Exception as ex: log(f"  download failed: {str(ex)[:80]}")
         log(f"single {pl['label']}: {len(cl)} matching clips, {len(files)} downloaded")
         if len(files) >= 3: break
+        _unmark(ep, pl["label"])      # only a place that reaches rendering can be blamed for a crash
     else: return None
     if len(files) < 3: return None
     k = len(files); segs = []; ovs = []; cur = Cursor()
