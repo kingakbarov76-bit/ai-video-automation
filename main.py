@@ -33,6 +33,7 @@ PLAYLISTS = {
     "single": ("Real Places That Don't Feel Real", "Real places on Earth that look unreal. Every place is named in the video, with a quick fact in the description."),
     "dream": ("Dreamworld: AI Art Series", "Dreamworld is our AI art series of imaginary places. Every episode is an invented place with its own short story. All visuals are AI-generated."),
     "long": ("Real Places That Don't Feel Real", "Real places on Earth that look unreal. Every place is named in the video, with a quick fact in the description."),
+    "ambient": ("Relaxing Nature Sounds", "Calm nature scenes for relaxing, studying or sleeping. Footage is licensed stock video (Pexels, Pixabay); the ambient sound is synthesized for this channel."),
     "choose": ("Which Place Would You Stay In?", "Pick your favourite dream stay and comment the number. All visuals are AI-generated."),
 }
 FOOTER = "#shorts #placesthatdontfeelreal #beautifulplaces #travel #nature"
@@ -168,6 +169,30 @@ def fmt_single(ep, work):
     tags = [short, pl["label"], "places on earth that don't feel real", "unreal places", "travel", "nature", "beautiful places"]
     rec = [{"place": pl["label"], "clips": [{"src": c["src"], "id": c["id"], "page": c["page"], "author": c["credit"]} for _, c in files]}]
     return dict(out=out, title=title, desc=desc, tags=tags, synthetic=False, rec=rec, theme=pl["label"])
+
+def fmt_ambient(ep, work):
+    """~1 min relaxing nature Short: slow clips + synthesized ambience, no text."""
+    from src import ambient
+    sc = ambient.scene_for(ep); cl = ambient.clips(sc, 5, log, seed=ep); files = []
+    for i, c in enumerate(cl):
+        if len(files) >= 5: break
+        if _crashed(ep, c["id"]): log(f"ambient: skipping {c['id']} (crashed the server before)"); continue
+        _mark(ep, c["id"])
+        try: files.append((_download(c, f"{work}/amb_src{i}.mp4"), c))
+        except Exception as ex: log(f"  download failed: {str(ex)[:80]}"); _unmark(ep, c["id"])
+    log(f"ambient {sc['key']}: {len(cl)} matching clips, {len(files)} downloaded")
+    if len(files) < 4: return None
+    out = f"{work}/../video.mp4"
+    if not ambient.build(files, out, work, sc, seed=ep, log=log): return None
+    credits = sorted({c["credit"] for _, c in files})
+    title = f"{sc['title']} {sc['emo']} relaxing nature sounds #relaxing #nature #asmr #{sc['tag']}"
+    desc = (f"{sc['title']}: calm nature to relax, study or fall asleep to.\n\n"
+            f"Footage: {', '.join(credits)} via Pexels and Pixabay (licensed stock footage, edited by Dreamy Earth).\n"
+            "Sound: nature ambience synthesized for this channel (not a field recording at the location).\n"
+            f"Follow for more calm nature.\n#relaxing #nature #asmr #{sc['tag']} #shorts")
+    tags = [sc["title"], "relaxing nature sounds", "nature sounds", "asmr nature", "relaxing", "calm", sc["key"], "sleep sounds"]
+    rec = [{"ambient": sc["key"], "clips": [{"src": c["src"], "id": c["id"], "page": c["page"], "author": c["credit"]} for _, c in files]}]
+    return dict(out=out, title=title, desc=desc, tags=tags, synthetic=False, rec=rec, theme=sc["title"])
 
 def fmt_dream(ep, work):
     """Dreamworld: one invented, named place per episode, with lore. Always labeled AI-generated."""
@@ -341,13 +366,15 @@ def main(mode):
         render.MUSIC_SRC = music.pick_track(ep, "out/work", log)
     except Exception as ex: log("music step skipped:", str(ex)[:120]); render.MUSIC_SRC = None
     if mode == "long": fmode = "long"
-    if fmode == "run": fmode = ["list", "skip", "single"][k]   # real places only; 04:00 and 20:00 Tashkent = US evening / morning
+    if fmode == "run": fmode = ["list", "ambient", "single"][k]   # real places only; 04:00 and 20:00 Tashkent = US evening / morning
     if fmode == "skip": log("SKIP: no upload in this slot (two quality uploads a day)"); return
     fmode = {"ai": "dream"}.get(fmode, fmode)
     log(f"slot ep={ep} k={k} format={fmode}" + (" (dry run)" if dry else ""))
     work = "out/work"; os.makedirs(work, exist_ok=True)
-    fn = {"list": fmt_list, "single": fmt_single, "dream": fmt_dream, "choose": fmt_choice, "long": fmt_long}[fmode]
+    fn = {"list": fmt_list, "single": fmt_single, "dream": fmt_dream, "choose": fmt_choice, "ambient": fmt_ambient, "long": fmt_long}[fmode]
     data = fmt_long(ep, work, n_target=3, dry=True) if (fmode == "long" and dry) else fn(ep, work)
+    if data is None and fmode == "ambient":
+        log("ambient: not enough calm footage, using the single-place format"); data = fmt_single(ep, work)
     if data is None and fmode in ("list", "single"):
         log(f"{fmode}: not enough named-place footage, trying the other real format")
         data = (fmt_single if fmode == "list" else fmt_list)(ep, work) or fmt_generic(ep, work)
