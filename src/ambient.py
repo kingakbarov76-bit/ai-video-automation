@@ -15,7 +15,7 @@ def kind_for(label):
     if any(w in l for w in ("bora", "maldives", "beach", "bay", "island", "palawan", "reef", "blue hole", "cinque", "faroe", "lofoten", "fjord", "bali")): return "ocean"
     if any(w in l for w in ("lake", "lago", "plitvice", "baikal", "hallstatt", "milford")): return "lake"
     return "wind"
-BIRDS = {"stream": 0.7, "wind": 0.8, "lake": 0.9, "ocean": 0.0}
+BIRDS = {}   # synthetic birdsong switched off: the calm piano carries the mood
 
 # ---------------- sound ----------------
 SR = 22050   # half rate keeps RAM low on the free 512 MB instance; ffmpeg resamples to 44.1 kHz
@@ -78,20 +78,33 @@ def _birds(n, rng, density):
         for p, s in notes: _add(L, s, int((t + p) * SR), g * (1 - pan)); _add(R, s, int((t + p) * SR), g * pan)
         t += 3 + rng.gamma(2.0, 2.2)
     return L, R
-def _music(n, rng, seed):
-    """Warm pad + sparse pentatonic bell notes: slow, no beat, nothing to follow."""
-    t = np.arange(n) / SR; pad = np.zeros(n); seg = int(SR * 9); chords = [[110, 164.81, 220, 277.18], [87.31, 130.81, 174.61, 220], [130.81, 196, 261.63, 329.63], [98, 146.83, 196, 246.94]]
-    for i, a0 in enumerate(range(0, n, seg)):
-        a1 = min(n, a0 + seg + SR * 2); tt = t[a0:a1] - t[a0]; env = np.minimum(tt / 4, 1) * np.clip((tt[-1] - tt) / 4, 0, 1)
-        for f in chords[(i + seed) % 4]:
-            for dt in (-0.6, 0.6): pad[a0:a1] += np.sin(2 * np.pi * (f + dt) * tt + rng.uniform(0, 6)) * env * 0.5
-    pad = pad / (np.abs(pad).max() + 1e-9) * (0.8 + 0.2 * np.sin(2 * np.pi * t / 14))
-    bells = np.zeros(n); scale = [220, 261.63, 293.66, 329.63, 392, 440, 523.25, 587.33]; tb = rng.uniform(1.5, 3)
-    while tb < n / SR - 3:
-        f = rng.choice(scale); tt = np.arange(int(3.2 * SR)) / SR
-        _add(bells, (np.sin(2 * np.pi * f * tt) + 0.22 * np.sin(2 * np.pi * 2.0 * f * tt) + 0.08 * np.sin(2 * np.pi * 3.01 * f * tt)) * np.exp(-tt * 1.6) * np.minimum(tt / 0.01, 1), int(tb * SR), rng.uniform(0.18, 0.32))
-        tb += rng.uniform(3.2, 7.5)
-    m = _reverb(pad * 0.55 + bells, rng, rt=3.0, wet=0.5); return m / (np.abs(m).max() + 1e-9)
+def _piano(f, dur=3.4, vel=1.0):
+    """Soft felt-piano-like tone: inharmonic partials with faster-decaying highs, quick attack."""
+    tt = np.arange(int(dur * SR)) / SR; y = np.zeros_like(tt)
+    for k, (amp, dec) in enumerate(((1, 1.3), (0.55, 2.0), (0.32, 3.0), (0.16, 4.2), (0.08, 5.5), (0.04, 7.0)), start=1):
+        fk = f * k * np.sqrt(1 + 0.0004 * k * k)
+        if fk < 9000: y += amp * np.sin(2 * np.pi * fk * tt + k) * np.exp(-tt * dec)
+    return y * np.minimum(tt / 0.006, 1) * vel
+def _music(n, rng, seed, bpm=58):
+    """Slow, warm, beatless piano music: sustained pad + gentle arpeggio + sparse pentatonic melody in a major key, with a big soft reverb."""
+    beat = 60 / bpm; bar = 4 * beat; root = [48, 50, 53, 55, 57][seed % 5]
+    mf = lambda m: 440 * 2 ** ((m - 69) / 12)
+    prog = [([0, 4, 7, 11], 0), ([0, 3, 7, 10], 9), ([0, 4, 7, 11], 5), ([0, 4, 7, 9], 7)]       # Imaj7, vi7, IVmaj7, V6
+    pent = [0, 2, 4, 7, 9]; idx = 7; out = np.zeros(n); pad = np.zeros(n); t = np.arange(n) / SR
+    for b in range(int(n / SR / bar) + 2):
+        ch, off = prog[(b + seed // 5) % 4]; t0 = b * bar; base = root + off
+        _add(out, _piano(mf(base - 12), 4.2), int(t0 * SR), 0.34)                                     # bass note
+        for k, i in enumerate([0, 1, 2, 3, 2, 1, 2, 1]):                                              # slow rolling arpeggio, one note per half beat... every beat
+            _add(out, _piano(mf(base + 12 + ch[i % 4]), 3.0), int((t0 + k * beat * 0.5) * SR), rng.uniform(0.11, 0.16))
+        for step in range(4):                                                                         # melody: sparse, stepwise
+            if rng.random() < 0.62:
+                idx = int(np.clip(idx + rng.choice([-2, -1, 1, 2]), 5, 11)); m = root + 12 * (idx // 5) + pent[idx % 5] + 12
+                _add(out, _piano(mf(m), 3.6), int((t0 + step * beat + rng.choice([0, 0, 0.5 * beat])) * SR), rng.uniform(0.2, 0.3))
+        a0 = int(t0 * SR); a1 = min(n, int((t0 + bar + 1.5) * SR))
+        if a0 < n:
+            tt = t[a0:a1] - t[a0]; env = np.minimum(tt / 1.6, 1) * np.clip((tt[-1] - tt) / 1.6, 0, 1)
+            for c in ch[:3]: pad[a0:a1] += np.sin(2 * np.pi * mf(base + c - 12) * tt + rng.uniform(0, 6)) * env * 0.08
+    m = _reverb(out + pad, rng, rt=3.2, wet=0.38); return np.tanh(m / (np.abs(m).max() + 1e-9) * 1.4) * 0.9
 def _plan_env(n, plan, dur):
     """Per-sample 'mood' curves from what each clip looks like: sunny/bright -> birds, dull/grey -> more wind, bluish -> more water."""
     sun, blue = np.zeros(n), np.zeros(n); pos = 0.0
@@ -112,12 +125,12 @@ def make_sound(path, dur, kind, seed=0, plan=None):
         water = np.stack([_channel(kind, n, rng) for _ in range(2)], 1) * (0.45 + 0.55 * blue)[:, None]
         nat = wind * 0.55 + water
     else: nat = wind
-    nat = np.stack([_reverb(nat[:, 0], rng, 1.4, 0.18), _reverb(nat[:, 1], rng, 1.4, 0.18)], 1) * 0.85
+    nat = np.stack([_reverb(nat[:, 0], rng, 1.4, 0.18), _reverb(nat[:, 1], rng, 1.4, 0.18)], 1) * 0.16   # only a faint natural bed under the music
     d = BIRDS.get(kind, 0)
     if d:
         bl, br = _birds(n, rng, d); bl, br = _reverb(bl, rng, 1.8, 0.35), _reverb(br, rng, 1.8, 0.35)
         nat += np.stack([bl, br], 1) * 1.6 * (0.1 + 0.9 * sun)[:, None]
-    mus = _music(n, rng, seed); mus2 = np.stack([mus, np.roll(mus, 400)], 1) * 0.32
+    mus = _music(n, rng, seed); mus2 = np.stack([mus, np.roll(mus, 400)], 1) * 0.8
     st = nat + mus2
     t = np.arange(n) / SR; st *= np.minimum(1, np.minimum(t / 1.5, (dur - t) / 2.0))[:, None]
     st = np.tanh(st * 0.9) * 0.6
