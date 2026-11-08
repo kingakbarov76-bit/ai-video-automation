@@ -301,10 +301,10 @@ def card(path, hook=None, hook2=None, label=None, num=None, fact=None, cta=None,
     im.save(path)
 
 FRAMES13 = [93] + [31] * 11 + [46]   # 480 frames = 16.0 s at 116.13 BPM (cuts on the beat)
-def build_seq_video(segments, overlays, out_path, workdir, seed=0, log=print, hd=True, bpm=116.13, narr=None):
+def build_seq_video(segments, overlays, out_path, workdir, seed=0, log=print, hd=True, bpm=116.13, narr=None, beat_frames=31):
     """segments: list of (src, start_seconds); overlays: list of png paths (or None); 13 segments -> 16 s."""
     os.makedirs(workdir, exist_ok=True); clips = []; ow, oh = (HW, HH) if hd else (W, H)
-    frames = FRAMES13 if len(segments) == 13 else [93] + [31] * (len(segments) - 2) + [46]
+    frames = FRAMES13 if (len(segments) == 13 and beat_frames == 31) else [93] + [beat_frames] * (len(segments) - 2) + [46]
     for i, ((src, ss), ov) in enumerate(zip(segments, overlays)):
         c = f"{workdir}/seq{i}.mp4"
         base = (f"scale={ow}:{oh}:force_original_aspect_ratio=increase:flags=lanczos,crop={ow}:{oh},fps={FPS},"

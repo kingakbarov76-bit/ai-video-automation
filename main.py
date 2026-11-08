@@ -134,9 +134,10 @@ def fmt_single(ep, work):
     else: return None
     if len(files) < 3: return None
     k = len(files); segs = []; ovs = []; cur = Cursor()
-    nseg = [9, 13, 19][(ep // 3) % 3]            # ~12 s, 16 s, 22 s: vary lengths to learn what keeps viewers
-    fr = render.FRAMES13 if nseg == 13 else [93] + [31] * (nseg - 2) + [46]
-    mid_split = 2 + (nseg - 3) // 2
+    BF = 62                                      # 4 beats (~2 s) per shot: calmer pacing than 1-second cuts
+    nseg = [6, 8, 10][(ep // 3) % 3]             # ~13 s, 17 s, 21 s: vary lengths to learn what keeps viewers
+    fr = [93] + [BF] * (nseg - 2) + [46]
+    mid_split = 2 + (nseg - 1) // 2
     for i in range(nseg):
         if i == nseg - 1: path, c = files[0]; off = 0.4
         else: path, c = files[i % k]; off = cur.take(c, fr[i])
@@ -152,8 +153,8 @@ def fmt_single(ep, work):
     short = pl["label"].split(",")[0]
     h1, h2 = HOOKS[ep % len(HOOKS)]; F = render.FPS
     narr = dict(lines=[f"{h1} {h2}", f"{short}. {pl['f1'].rstrip('.')}.", f"{pl['f2'].rstrip('.')}.", CTAS[ep % len(CTAS)].replace("Comment YES", "Comment yes")],
-                starts=[0.3, 93 / F, (93 + 31 * (mid_split - 1)) / F, (93 + 31 * (nseg - 2)) / F])
-    render.build_seq_video(segs, ovs, out, work, seed=ep, log=log, hd=True, narr=narr)
+                starts=[0.3, 93 / F, (93 + BF * (mid_split - 2)) / F, (93 + BF * (nseg - 2)) / F])
+    render.build_seq_video(segs, ovs, out, work, seed=ep, log=log, hd=True, narr=narr, beat_frames=BF)
     emo = ["😱", "🤯", "😍"][ep % 3]
     title = f"{short} doesn't look real {emo} #{pl['tag']} #travel #nature #earth"
     credits = sorted({c["credit"] for _, c in files})
@@ -337,7 +338,8 @@ def main(mode):
         render.MUSIC_SRC = music.pick_track(ep, "out/work", log)
     except Exception as ex: log("music step skipped:", str(ex)[:120]); render.MUSIC_SRC = None
     if mode == "long": fmode = "long"
-    if fmode == "run": fmode = ["list", "single", "dream" if (ep // 3) % 2 == 0 else "choose"][k]
+    if fmode == "run": fmode = ["list", "skip", "single"][k]   # real places only; 04:00 and 20:00 Tashkent = US evening / morning
+    if fmode == "skip": log("SKIP: no upload in this slot (two quality uploads a day)"); return
     fmode = {"ai": "dream"}.get(fmode, fmode)
     log(f"slot ep={ep} k={k} format={fmode}" + (" (dry run)" if dry else ""))
     work = "out/work"; os.makedirs(work, exist_ok=True)
