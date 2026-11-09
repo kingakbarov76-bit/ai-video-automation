@@ -1,0 +1,91 @@
+{
+ "video": "ABbspFkiaT4",
+ "title": "Cappadocia to Whitehaven Beach: 6 places that look unreal 🤯",
+ "music": "built-in synth",
+ "items": [
+  {
+   "place": "Cappadocia, Turkey",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px28667986",
+     "page": "https://www.pexels.com/video/hot-air-balloons-over-cappadocia-at-sunset-28667986/",
+     "author": "Murat Güroğlu"
+    },
+    {
+     "src": "pexels",
+     "id": "px31802108",
+     "page": "https://www.pexels.com/video/aerial-view-of-uchisar-castle-cappadocia-31802108/",
+     "author": "Okan Demiray"
+    }
+   ]
+  },
+  {
+   "place": "Bryce Canyon, USA",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px12791042",
+     "page": "https://www.pexels.com/video/rock-formations-at-bryce-canyon-national-park-utah-12791042/",
+     "author": "Vasilis Karkalas"
+    },
+    {
+     "src": "pexels",
+     "id": "px31902861",
+     "page": "https://www.pexels.com/video/exploring-bryce-canyon-hiking-adventure-31902861/",
+     "author": "Alex Moliski"
+    }
+   ]
+  },
+  {
+   "place": "Lencois Maranhenses, Brazil",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px34786806",
+     "page": "https://www.pexels.com/video/exploring-lencois-maranhenses-on-atvs-34786806/",
+     "author": "Victor Silva"
+    }
+   ]
+  },
+  {
+   "place": "Arashiyama Bamboo Forest, Japan",
+   "clips": [
+    {
+     "src": "pixabay",
+     "id": "pb243931",
+     "page": "https://pixabay.com/videos/id-243931/",
+     "author": "Kanenori"
+    }
+   ]
+  },
+  {
+   "place": "Zion National Park, USA",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px11928727",
+     "page": "https://www.pexels.com/video/low-angle-view-of-mountains-at-zion-national-park-in-utah-11928727/",
+     "author": "Vasilis Karkalas"
+    },
+    {
+     "src": "pexels",
+     "id": "px25377009",
+     "page": "https://www.pexels.com/video/a-trail-in-the-red-rocks-of-zion-25377009/",
+     "author": "Alex Moliski"
+    }
+   ]
+  },
+  {
+   "place": "Whitehaven Beach, Australia",
+   "clips": [
+    {
+     "src": "pixabay",
+     "id": "pb385784",
+     "page": "https://pixabay.com/videos/id-385784/",
+     "author": "Razzak_100"
+    }
+   ]
+  }
+ ]
+}
