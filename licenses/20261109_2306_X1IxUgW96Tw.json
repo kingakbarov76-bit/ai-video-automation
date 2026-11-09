@@ -1,0 +1,109 @@
+{
+ "video": "X1IxUgW96Tw",
+ "title": "Lauterbrunnen, Lake Bled and 4 more places that don't feel real 🤯",
+ "music": "built-in synth",
+ "items": [
+  {
+   "place": "Lauterbrunnen, Switzerland",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px14866029",
+     "page": "https://www.pexels.com/video/drone-footage-of-staubbach-falls-in-lauterbrunnen-switzerland-14866029/",
+     "author": "Edward Rode"
+    },
+    {
+     "src": "pexels",
+     "id": "px37849406",
+     "page": "https://www.pexels.com/video/scenic-view-of-lauterbrunnen-waterfall-37849406/",
+     "author": "Marlon Castor"
+    }
+   ]
+  },
+  {
+   "place": "Lake Bled, Slovenia",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px37131409",
+     "page": "https://www.pexels.com/video/picturesque-lake-bled-with-snowy-mountains-37131409/",
+     "author": "Atai Anarbek"
+    },
+    {
+     "src": "pexels",
+     "id": "px39922785",
+     "page": "https://www.pexels.com/video/stunning-sunset-over-lake-bled-and-castle-39922785/",
+     "author": "Vladimir Srajber"
+    }
+   ]
+  },
+  {
+   "place": "Zhangye Danxia, China",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px35979006",
+     "page": "https://www.pexels.com/video/aerial-view-of-zhangye-danxia-national-geopark-35979006/",
+     "author": "chuan wang"
+    },
+    {
+     "src": "pexels",
+     "id": "px35979135",
+     "page": "https://www.pexels.com/video/stunning-aerial-view-of-zhangye-danxia-landforms-35979135/",
+     "author": "chuan wang"
+    }
+   ]
+  },
+  {
+   "place": "Namib Desert, Namibia",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px34162473",
+     "page": "https://www.pexels.com/video/aerial-view-of-the-namib-desert-34162473/",
+     "author": "Anton Lukin"
+    },
+    {
+     "src": "pexels",
+     "id": "px11563682",
+     "page": "https://www.pexels.com/video/namibia-desert-tiras-mountains-11563682/",
+     "author": "Deon van Rooyen"
+    }
+   ]
+  },
+  {
+   "place": "Mount Fuji, Japan",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px35468442",
+     "page": "https://www.pexels.com/video/mount-fuji-view-from-train-station-35468442/",
+     "author": "Messiedo Xadinho"
+    },
+    {
+     "src": "pexels",
+     "id": "px35803549",
+     "page": "https://www.pexels.com/video/person-walking-with-soccer-ball-near-mount-fuji-35803549/",
+     "author": "Messiedo Xadinho"
+    }
+   ]
+  },
+  {
+   "place": "Perito Moreno Glacier, Argentina",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px32881618",
+     "page": "https://www.pexels.com/video/majestic-perito-moreno-glacier-in-patagonia-32881618/",
+     "author": "Sergey Guk"
+    },
+    {
+     "src": "pexels",
+     "id": "px32881620",
+     "page": "https://www.pexels.com/video/majestic-aerial-view-of-perito-moreno-glacier-32881620/",
+     "author": "Sergey Guk"
+    }
+   ]
+  }
+ ]
+}
