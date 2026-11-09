@@ -1,0 +1,31 @@
+{
+ "video": "Gv9j4JFEts8",
+ "title": "Yosemite 🌿 calm nature sounds to relax #relaxing #nature #asmr #yosemite",
+ "music": "built-in synth",
+ "items": [
+  {
+   "place": "Yosemite, USA",
+   "ambient": "wind",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px27973784",
+     "page": "https://www.pexels.com/video/yosemite-national-park-california-27973784/",
+     "author": "Dubang chang"
+    },
+    {
+     "src": "pexels",
+     "id": "px27973782",
+     "page": "https://www.pexels.com/video/a-view-of-the-yosemite-valley-from-the-top-of-the-mountain-27973782/",
+     "author": "Dubang chang"
+    },
+    {
+     "src": "pexels",
+     "id": "px28970701",
+     "page": "https://www.pexels.com/video/majestic-waterfall-in-yosemite-national-park-28970701/",
+     "author": "Dubang chang"
+    }
+   ]
+  }
+ ]
+}
