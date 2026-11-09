@@ -361,7 +361,7 @@ def main(mode):
             mins, n24 = yt.upload_stats(_yt())
             if mins is not None and mins < 150: log(f"SKIP: last upload {mins:.0f} min ago (slot already done)"); return
             if is_long_slot(): mode = "long"
-            elif not in_slot and mins is not None and mins < 450: log(f"SKIP: not an upload slot (last upload {mins:.0f} min ago)"); return
+            elif not in_slot and mins is not None and mins < 700: log(f"SKIP: not an upload slot (last upload {mins:.0f} min ago)"); return
             if n24 >= 10: log(f"SKIP: already {n24} uploads in last 24h (safety cap)"); return
         except Exception as ex: log("upload-guard check failed, continuing:", str(ex)[:120])
     try:
