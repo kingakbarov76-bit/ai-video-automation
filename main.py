@@ -139,7 +139,7 @@ def fmt_single(ep, work):
     k = len(files); segs = []; ovs = []; cur = Cursor()
     BF = 62                                      # 4 beats (~2 s) per shot: calmer pacing than 1-second cuts
     nseg = [6, 7, 8][(ep // 3) % 3]             # ~13 s, 15 s, 17 s (small channels that broke out use 14-26 s)
-    fr = [93] + [BF] * (nseg - 2) + [46]
+    fr = [62] + [BF] * (nseg - 2) + [46]
     mid_split = 2 + (nseg - 1) // 2
     for i in range(nseg):
         if i == nseg - 1: path, c = files[0]; off = 0.4
@@ -156,7 +156,7 @@ def fmt_single(ep, work):
     short = pl["label"].split(",")[0]
     h1, h2 = HOOKS[ep % len(HOOKS)]; F = render.FPS
     narr = dict(lines=[f"{h1} {h2}", f"{short}. {pl['f1'].rstrip('.')}.", f"{pl['f2'].rstrip('.')}.", CTAS[ep % len(CTAS)].replace("Comment YES", "Comment yes")],
-                starts=[0.3, 93 / F, (93 + BF * (mid_split - 2)) / F, (93 + BF * (nseg - 2)) / F])
+                starts=[0.2, 62 / F, (62 + BF * (mid_split - 2)) / F, (62 + BF * (nseg - 2)) / F])
     render.build_seq_video(segs, ovs, out, work, seed=ep, log=log, hd=True, narr=(narr if os.environ.get("VOICEOVER") == "1" else None), beat_frames=BF)
     emo = ["😱", "🤯", "😍"][ep % 3]
     tt = ["{s} doesn't look real {e}", "{s}: one of the most beautiful places on earth {e}", "{s} is a real place {e}", "Would you visit {s}? {e}"][(ep // 2) % 4]
@@ -374,7 +374,7 @@ def main(mode):
         render.MUSIC_SRC = music.pick_track(ep, "out/work", log)
     except Exception as ex: log("music step skipped:", str(ex)[:120]); render.MUSIC_SRC = None
     if mode == "long": fmode = "long"
-    if fmode == "run": fmode = ["list", "ambient", "single"][k]   # real places only; 04:00 and 20:00 Tashkent = US evening / morning
+    if fmode == "run": fmode = ["single", "ambient", "single"][k]   # real places only; 04:00 and 20:00 Tashkent = US evening / morning
     if fmode == "skip": log("SKIP: no upload in this slot (two quality uploads a day)"); return
     fmode = {"ai": "dream"}.get(fmode, fmode)
     log(f"slot ep={ep} k={k} format={fmode}" + (" (dry run)" if dry else ""))

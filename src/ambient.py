@@ -4,7 +4,7 @@ The sound is synthetic and the description says so."""
 import os, random, subprocess, wave
 import numpy as np
 
-SEG_S, MAX_S = 12.0, 34.0
+SEG_S, MAX_S = 8.5, 27.0
 CALM = ["lake", "lago", "falls", "bay", "island", "beach", "bora", "maldives", "fjord", "forest", "bamboo", "lauterbrunnen", "hallstatt", "dolomites", "banff",
         "yosemite", "plitvice", "milford", "guilin", "terraces", "cinque", "torres", "baikal", "lofoten", "faroe", "iceland", "zhangjiajie", "bali", "palawan", "reef", "blue hole"]
 def calm_places(places_mod):
@@ -162,12 +162,12 @@ def build(files, out, work, kind, label_png=None, seed=0, log=print):
         d = round(min(SEG_S, c["dur"] - 0.6, MAX_S - total), 2)
         if d < 6: continue
         ss = round(random.Random(seed + i).uniform(0, max(0, c["dur"] - d - 0.3)), 2); seg = f"{work}/amb{i}.mp4"
-        base = (f"scale=720:1280:force_original_aspect_ratio=increase:flags=lanczos,crop=720:1280,fps=30,eq=saturation=1.06:contrast=1.03,"
-                f"fade=t=in:st=0:d=1.0,fade=t=out:st={d - 1.0:.2f}:d=1.0,setsar=1")
+        base = (f"scale=720:1280:force_original_aspect_ratio=increase:flags=lanczos,crop=720:1280,fps=30,eq=saturation=1.06:contrast=1.03," +
+                (f"fade=t=in:st=0:d=0.7," if i > 0 else "") + f"fade=t=out:st={d - 0.7:.2f}:d=0.7,setsar=1")
         cmd = ["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{ss}", "-t", f"{d}", "-i", path]
         if i == 0 and label_png:
             cmd += ["-loop", "1", "-framerate", "30", "-t", f"{d}", "-i", label_png, "-filter_complex",
-                    f"[0:v]{base}[a];[1:v]format=rgba,fade=t=in:st=1.0:d=0.8:alpha=1,fade=t=out:st=4.4:d=0.8:alpha=1[o];[a][o]overlay=0:0:shortest=1,format=yuv420p[v]", "-map", "[v]"]
+                    f"[0:v]{base}[a];[1:v]format=rgba,fade=t=in:st=0.15:d=0.5:alpha=1,fade=t=out:st=3.8:d=0.6:alpha=1[o];[a][o]overlay=0:0:shortest=1,format=yuv420p[v]", "-map", "[v]"]
         else: cmd += ["-vf", base + ",format=yuv420p"]
         _run(cmd + ["-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-threads", "1", seg])
         segs.append(seg); plan.append((d, _avg_rgb(path))); total += d; i += 1; log(f"ambient segment {i} done ({total:.0f} s)")
