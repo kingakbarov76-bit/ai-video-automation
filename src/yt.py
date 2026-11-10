@@ -99,3 +99,13 @@ def set_thumbnail(access, video_id, jpg):
         r = requests.post(f"https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId={video_id}&uploadType=media",
                           headers={"Authorization": f"Bearer {access}", "Content-Type": "image/jpeg"}, data=f.read(), timeout=120)
     return f"HTTP {r.status_code}" + ("" if r.status_code == 200 else ": " + r.text[:200])
+
+def retention(access, days=14, limit=50):
+    """Per-video average view duration / percentage via YouTube Analytics API (needs yt-analytics.readonly)."""
+    import datetime as _d
+    end = _d.date.today(); start = end - _d.timedelta(days=days)
+    r = requests.get("https://youtubeanalytics.googleapis.com/v2/reports", headers={"Authorization": f"Bearer {access}"}, timeout=30,
+        params={"ids": "channel==MINE", "startDate": start.isoformat(), "endDate": end.isoformat(), "dimensions": "video",
+                "metrics": "views,averageViewDuration,averageViewPercentage", "sort": "-views", "maxResults": limit})
+    if r.status_code != 200: raise RuntimeError(f"analytics HTTP {r.status_code}: {r.text[:200]}")
+    return {row[0]: {"views": row[1], "avg_s": row[2], "avg_pct": row[3]} for row in r.json().get("rows", [])}

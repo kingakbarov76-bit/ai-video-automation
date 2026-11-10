@@ -372,6 +372,11 @@ def main(mode):
     if mode == "analyze":
         vids = yt.my_videos_stats(_yt()); w, summ, top = analyze.run(vids, [t[0] for t in stock.THEMES]); log("ANALYSIS:", summ)
         for v in vids[:20]: log(f"  {v['id']} views={v['views']} likes={v['likes']} | {v['title'][:50]}")
+        try:
+            ret = yt.retention(_yt())
+            for v in vids[:20]:
+                if v["id"] in ret: a = ret[v["id"]]; log(f"  RET {v['id']} avg={a['avg_s']:.0f}s pct={a['avg_pct']:.0f}% views={a['views']} | {v['title'][:40]}")
+        except Exception as ex: log("retention unavailable:", str(ex)[:160])
         return
     if mode == "placescan": return place_scan()
     if mode == "check": mode = "dry_list"
