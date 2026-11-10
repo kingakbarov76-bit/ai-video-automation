@@ -1,3 +1,5 @@
+import random
+import glob
 """Calm nature Shorts (~20-35 s): ONE named place, 1-3 slow licensed stock clips (Pexels/Pixabay), nature ambience that we synthesize
 ourselves (water, wind, waves, light birdsong) under a very soft pad with sparse bell notes. Only the place name is shown, briefly.
 The sound is synthetic and the description says so."""
@@ -154,6 +156,17 @@ def pick_coherent(files, k=3):
 def _run(cmd):
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode: raise RuntimeError(r.stderr[-600:])
+def pick_track(seed):
+    """Returns (path, credit_line) for ready-made music on 2 of 3 days, else None (own synthesized music)."""
+    base = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets")
+    if (seed // 3) % 3 == 0: return None
+    cc0 = os.path.join(base, "first_light_particles.mp3")
+    gen = sorted(glob.glob(os.path.join(base, "music", "*.mp3")))
+    pool = ([(cc0, "Music: 'First Light Particles' by Yoiyami (CC0, public domain).")] if os.path.exists(cc0) else []) + \
+           [(p, "Music: original ambient track generated for this channel.") for p in gen]
+    if not pool: return None
+    return pool[(seed // 3 * 7 + seed) % len(pool)]
+
 def build(files, out, work, kind, label_png=None, seed=0, log=print):
     """files: [(path, clip)] of ONE place. Each segment fades softly in/out; 720x1280 keeps the free CPU fast. The place name shows for ~4 s."""
     segs, total, i, plan = [], 0.0, 0, []
@@ -174,13 +187,13 @@ def build(files, out, work, kind, label_png=None, seed=0, log=print):
     if total < 14: return None
     lst = f"{work}/amblist.txt"; open(lst, "w").write("".join(f"file '{os.path.abspath(s)}'\n" for s in segs))
     wav = f"{work}/amb.wav"; make_sound(wav, total, kind, seed, plan)
-    trk = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "first_light_particles.mp3")
-    if seed % 2 == 1 and os.path.exists(trk):      # alternate: ready-made CC0 piano (Yoiyami) vs. own synthesized music
+    pt = pick_track(seed)
+    if pt:      # ready-made / pre-generated tracks lead on 2 of 3 days; own live synth on the third
         try:
-            off = 4 + (seed * 7) % 70
+            trk, _cr = pt; off = round(random.Random(seed).uniform(2, 24), 1) if "first_light" not in trk else 4 + (seed * 7) % 70
             _run(["ffmpeg", "-y", "-loglevel", "error", "-ss", str(off), "-t", f"{total:.2f}", "-i", trk, "-af",
                   f"afade=t=in:d=2,afade=t=out:st={max(total-3,1):.2f}:d=3,loudnorm=I=-19:TP=-2", "-ar", "44100", f"{work}/trk.wav"])
-            wav = f"{work}/trk.wav"; log("ambient music: CC0 track (Yoiyami)")
+            wav = f"{work}/trk.wav"; log(f"ambient music: {os.path.basename(trk)}")
         except Exception as e:
             log(f"track mix failed, using synth: {e}")
     _run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", lst, "-i", wav, "-map", "0:v", "-map", "1:a", "-c:v", "copy",
