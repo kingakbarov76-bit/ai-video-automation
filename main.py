@@ -372,6 +372,8 @@ def main(mode):
     if mode == "analyze":
         vids = yt.my_videos_stats(_yt()); w, summ, top = analyze.run(vids, [t[0] for t in stock.THEMES]); log("ANALYSIS:", summ)
         for v in vids[:20]: log(f"  {v['id']} views={v['views']} likes={v['likes']} | {v['title'][:50]}")
+        try: log("SOURCES:", json.dumps(yt.sources(_yt())))
+        except Exception as ex: log("sources unavailable:", str(ex)[:160])
         try:
             ret = yt.retention(_yt())
             for v in vids[:20]:

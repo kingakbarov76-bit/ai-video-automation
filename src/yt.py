@@ -109,3 +109,13 @@ def retention(access, days=14, limit=50):
                 "metrics": "views,averageViewDuration,averageViewPercentage", "sort": "-views", "maxResults": limit})
     if r.status_code != 200: raise RuntimeError(f"analytics HTTP {r.status_code}: {r.text[:200]}")
     return {row[0]: {"views": row[1], "avg_s": row[2], "avg_pct": row[3]} for row in r.json().get("rows", [])}
+
+def sources(access, days=7):
+    """Channel views by content type and by traffic source (Analytics API)."""
+    import datetime as _d
+    end = _d.date.today(); start = end - _d.timedelta(days=days); h = {"Authorization": f"Bearer {access}"}; out = {}
+    for dim in ("creatorContentType", "insightTrafficSourceType"):
+        r = requests.get("https://youtubeanalytics.googleapis.com/v2/reports", headers=h, timeout=30,
+            params={"ids": "channel==MINE", "startDate": start.isoformat(), "endDate": end.isoformat(), "dimensions": dim, "metrics": "views", "sort": "-views"})
+        out[dim] = {row[0]: row[1] for row in r.json().get("rows", [])} if r.status_code == 200 else f"HTTP {r.status_code}: {r.text[:120]}"
+    return out
