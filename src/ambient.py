@@ -10,7 +10,9 @@ SEG_S, MAX_S = 8.5, 27.0
 CALM = ["lake", "lago", "falls", "bay", "island", "beach", "bora", "maldives", "fjord", "forest", "bamboo", "lauterbrunnen", "hallstatt", "dolomites", "banff",
         "yosemite", "plitvice", "milford", "guilin", "terraces", "cinque", "torres", "baikal", "lofoten", "faroe", "iceland", "zhangjiajie", "bali", "palawan", "reef", "blue hole"]
 def calm_places(places_mod):
-    return [p for p in places_mod.PLACES if any(k in p["label"].lower() for k in CALM)]
+    pool = [p for p in places_mod.PLACES if any(k in p["label"].lower() for k in CALM)]
+    extra = [p for p in places_mod.PLACES if places_mod.is_priority(p) and p not in pool]
+    return pool + extra + [p for p in pool + extra if places_mod.is_priority(p)] * 2
 def kind_for(label):
     l = label.lower()
     if any(w in l for w in ("falls", "waterfall", "river", "zhangjiajie", "lauterbrunnen")): return "stream"

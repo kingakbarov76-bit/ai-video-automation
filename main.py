@@ -160,13 +160,15 @@ def fmt_single(ep, work):
     h1, h2 = HOOKS[ep % len(HOOKS)]; F = render.FPS
     narr = dict(lines=[f"{h1} {h2}", f"{short}. {pl['f1'].rstrip('.')}.", f"{pl['f2'].rstrip('.')}.", CTAS[ep % len(CTAS)].replace("Comment YES", "Comment yes")],
                 starts=[0.2, 62 / F, (62 + BF * (mid_split - 2)) / F, (62 + BF * (nseg - 2)) / F])
-    render.build_seq_video(segs, ovs, out, work, seed=ep, log=log, hd=True, narr=(narr if os.environ.get("VOICEOVER") == "1" else None), beat_frames=BF)
+    from src import ambient
+    pt = ambient.pick_track(ep)
+    render.build_seq_video(segs, ovs, out, work, seed=ep, log=log, hd=True, narr=(narr if os.environ.get("VOICEOVER") == "1" else None), beat_frames=BF, track=(pt[0] if pt else None))
     emo = ["😱", "🤯", "😍"][ep % 3]
     tt = ["{s} doesn't look real {e}", "{s}: one of the most beautiful places on earth {e}", "{s} is a real place {e}", "Would you visit {s}? {e}"][(ep // 2) % 4]
     title = tt.format(s=short, e=emo) + f" #{pl['tag']} #travel #nature #earth"
     credits = sorted({c["credit"] for _, c in files})
     desc = (f"{pl['label']}: {pl['f1']}. {pl['f2']}.\nWould you go here? Tell me in the comments 👇\n\n"
-            f"Footage: {', '.join(credits)} via Pexels and Pixabay (licensed stock footage, edited by Dreamy Earth).\n{music_line()}\n"
+            f"Footage: {', '.join(credits)} via Pexels and Pixabay (licensed stock footage, edited by Dreamy Earth).\n{pt[1] if pt else music_line()}\n"
             + ("Voiceover: synthetic voice (Kokoro, open source).\n" if narr.get("done") else "") +
             f"Follow for real places that look unreal.\n{FOOTER} #{pl['tag']}")
     tags = [short, pl["label"], "places on earth that don't feel real", "unreal places", "travel", "nature", "beautiful places"]

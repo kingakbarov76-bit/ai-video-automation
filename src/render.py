@@ -1,3 +1,4 @@
+import random
 import os, subprocess, shutil
 from PIL import Image, ImageDraw, ImageFont
 from .audio import make_pad
@@ -307,7 +308,7 @@ def card(path, hook=None, hook2=None, label=None, num=None, fact=None, cta=None,
     im.save(path)
 
 FRAMES13 = [93] + [31] * 11 + [46]   # 480 frames = 16.0 s at 116.13 BPM (cuts on the beat)
-def build_seq_video(segments, overlays, out_path, workdir, seed=0, log=print, hd=True, bpm=116.13, narr=None, beat_frames=31):
+def build_seq_video(segments, overlays, out_path, workdir, seed=0, log=print, hd=True, bpm=116.13, narr=None, beat_frames=31, track=None):
     """segments: list of (src, start_seconds); overlays: list of png paths (or None); 13 segments -> 16 s."""
     os.makedirs(workdir, exist_ok=True); clips = []; ow, oh = (HW, HH) if hd else (W, H)
     frames = FRAMES13 if (len(segments) == 13 and beat_frames == 31) else [62 if beat_frames != 31 else 93] + [beat_frames] * (len(segments) - 2) + [46]   # shorter hook card on calm-paced shorts: people decide in ~2 s
@@ -323,7 +324,14 @@ def build_seq_video(segments, overlays, out_path, workdir, seed=0, log=print, hd
         run(cmd + ["-frames:v", str(frames[i]), "-an", "-r", str(FPS)] + enc + [c])
         clips.append(c); log(f"segment {i+1}/{len(segments)} done")
     lst = f"{workdir}/seqlist.txt"; open(lst, "w").write("".join(f"file '{os.path.abspath(c)}'\n" for c in clips))
-    dur = sum(frames) / FPS; wav = f"{workdir}/a.wav"; _music(wav, dur, bpm, seed, log)
+    dur = sum(frames) / FPS; wav = f"{workdir}/a.wav"
+    if track:                                  # ready-made calm track instead of the generated beat
+        try:
+            off = round(random.Random(seed).uniform(0, 20), 1) if "first_light" not in track else 4 + (seed * 7) % 70
+            run(["ffmpeg", "-y", "-loglevel", "error", "-ss", str(off), "-t", f"{dur:.2f}", "-i", track, "-af",
+                 f"afade=t=in:d=1.5,afade=t=out:st={max(dur-2.5,0.5):.2f}:d=2.5,loudnorm=I=-16:TP=-2", "-ar", "44100", wav]); log(f"music: ready-made track {os.path.basename(track)}")
+        except Exception as ex: log("track failed, using generated beat:", str(ex)[:100]); track = None; _music(wav, dur, bpm, seed, log)
+    else: _music(wav, dur, bpm, seed, log)
     if narr:                                  # optional free voiceover (Kokoro); any failure = no narration
         try:
             from src import tts

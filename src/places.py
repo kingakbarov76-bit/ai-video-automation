@@ -147,6 +147,10 @@ def norm(s):
 def matches(place, text):
     t = norm(text)
     return any(norm(k) in t for k in place["kw"])
+PRIORITY = ("iceland", "tromso", "lapland", "lofoten", "maldives", "fuji", "banff", "geiranger", "trolltunga", "preikestolen", "bora bora")
+def is_priority(q): return any(k in q["label"].lower() for k in PRIORITY)
 def order(seed):
     """Deterministic shuffled order of all places for a given seed."""
-    idx = list(range(len(PLACES))); random.Random(seed).shuffle(idx); return idx
+    idx = list(range(len(PLACES)))
+    idx += [i for i, q in enumerate(PLACES) if is_priority(q)] * 2      # top-viewed themes (aurora, Iceland, Maldives, Fuji, Norway, Banff) come up ~3x as often
+    random.Random(seed).shuffle(idx); return idx
