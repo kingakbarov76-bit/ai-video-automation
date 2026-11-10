@@ -329,7 +329,7 @@ def build_seq_video(segments, overlays, out_path, workdir, seed=0, log=print, hd
         try:
             off = round(random.Random(seed).uniform(0, 20), 1) if "first_light" not in track else 4 + (seed * 7) % 70
             run(["ffmpeg", "-y", "-loglevel", "error", "-ss", str(off), "-t", f"{dur:.2f}", "-i", track, "-af",
-                 f"afade=t=in:d=1.5,afade=t=out:st={max(dur-2.5,0.5):.2f}:d=2.5,loudnorm=I=-16:TP=-2", "-ar", "44100", wav]); log(f"music: ready-made track {os.path.basename(track)}")
+                 f"afade=t=in:d=0.25,afade=t=out:st={max(dur-1.5,0.5):.2f}:d=1.5,loudnorm=I=-16:TP=-2", "-ar", "44100", wav]); log(f"music: ready-made track {os.path.basename(track)}")
         except Exception as ex: log("track failed, using generated beat:", str(ex)[:100]); track = None; _music(wav, dur, bpm, seed, log)
     else: _music(wav, dur, bpm, seed, log)
     if narr:                                  # optional free voiceover (Kokoro); any failure = no narration

@@ -120,6 +120,20 @@ def _unmark(ep, label):
         open(p, "w").write("".join(x + "\n" for x in ls))
     except OSError: pass
 
+def _wow(path):
+    """Cheap visual-impact score of a clip (colour saturation + contrast + motion): the strongest clip opens the video."""
+    import subprocess, re
+    try:
+        r = subprocess.run(["ffmpeg", "-v", "error", "-ss", "1", "-t", "3", "-i", path, "-vf", "scale=160:-2,fps=6,signalstats,metadata=print:file=-", "-an", "-f", "null", "-"],
+                           capture_output=True, text=True, timeout=60)
+        v = {}
+        for k in ("SATAVG", "YDIF", "YHIGH", "YLOW"):
+            xs = [float(x) for x in re.findall(r"signalstats\." + k + r"=([0-9.]+)", r.stdout)]
+            v[k] = sum(xs) / len(xs) if xs else 0.0
+        return v["SATAVG"] / 50 + (v["YHIGH"] - v["YLOW"]) / 200 + min(v["YDIF"], 10) / 10
+    except Exception:
+        return 0.0
+
 def fmt_single(ep, work):
     """One real place: name + two facts on screen."""
     D = ep // 3; order = places.order(202); n = len(order)
@@ -137,9 +151,10 @@ def fmt_single(ep, work):
         _unmark(ep, pl["label"])      # only a place that reaches rendering can be blamed for a crash
     else: return None
     if len(files) < 3: return None
+    files.sort(key=lambda fc: -_wow(fc[0])); log("opening clip chosen by visual impact")
     k = len(files); segs = []; ovs = []; cur = Cursor()
     BF = 62                                      # 4 beats (~2 s) per shot: calmer pacing than 1-second cuts
-    nseg = [6, 7, 8][(ep // 3) % 3]             # ~13 s, 15 s, 17 s (small channels that broke out use 14-26 s)
+    nseg = [4, 5, 6][(ep // 3) % 3]             # ~8 s, 10 s, 12 s: shorter = higher share watched to the end (test lengths, compare views)             # ~13 s, 15 s, 17 s (small channels that broke out use 14-26 s)
     fr = [62] + [BF] * (nseg - 2) + [46]
     mid_split = 2 + (nseg - 1) // 2
     for i in range(nseg):
@@ -382,7 +397,7 @@ def main(mode):
         render.MUSIC_SRC = music.pick_track(ep, "out/work", log)
     except Exception as ex: log("music step skipped:", str(ex)[:120]); render.MUSIC_SRC = None
     if mode == "long": fmode = "long"
-    if fmode == "run": fmode = ["single", "ambient", "single"][k]   # real places only; 04:00 and 20:00 Tashkent = US evening / morning
+    if fmode == "run": fmode = ["ambient", "single", "ambient"][k]   # real places only; 04:00 and 20:00 Tashkent = US evening / morning
     if fmode == "skip": log("SKIP: no upload in this slot (two quality uploads a day)"); return
     fmode = {"ai": "dream"}.get(fmode, fmode)
     log(f"slot ep={ep} k={k} format={fmode}" + (" (dry run)" if dry else ""))

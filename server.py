@@ -61,7 +61,7 @@ class H(BaseHTTPRequestHandler):
             return self.send(f"running={STATE['running']}\n{txt}")
         if u.path == "/auth":
             cid = os.environ.get("GOOGLE_CLIENT_ID", "")
-            scope = "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube"
+            scope = "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube https://www.googleapis.com/auth/yt-analytics.readonly"
             link = ("https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode({
                 "client_id": cid, "redirect_uri": "http://localhost", "response_type": "code",
                 "scope": scope, "access_type": "offline", "prompt": "consent"}))
