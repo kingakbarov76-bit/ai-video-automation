@@ -1,3 +1,4 @@
+import time
 import os, sys, json, random, datetime, traceback
 from src import scenes, cf_images, render, yt, stock, captions, analyze, aiplaces, places, dreamworld
 LOG = "logs/last_run.txt"
@@ -360,6 +361,9 @@ def main(mode):
     dry = mode.startswith("dry_"); fmode = mode[4:] if dry else mode
     if mode == "run":
         try:
+            if time.time() - float(open("/tmp/last_upload_ts").read()) < 150 * 60: log("SKIP: local guard, uploaded moments ago (slot already done)"); return
+        except (OSError, ValueError): pass
+        try:
             mins, n24 = yt.upload_stats(_yt())
             if mins is not None and mins < 150: log(f"SKIP: last upload {mins:.0f} min ago (slot already done)"); return
             if is_long_slot(): mode = "long"
@@ -399,6 +403,8 @@ def main(mode):
         log("preview saved to music-library/previews/"); return
     vid, privacy = yt.upload(_yt(), data["out"], data["title"], data["desc"], data["tags"][:15], synthetic=data["synthetic"])
     log("uploaded:", vid, "privacy:", privacy, "| title:", data["title"])
+    try: open("/tmp/last_upload_ts", "w").write(str(time.time()))      # local guard: the YouTube list API can lag several minutes behind a fresh upload
+    except OSError: pass
     if privacy != "public": log("WARNING: upload is not public:", privacy)
     if data.get("thumb"):
         try: log("thumbnail:", yt.set_thumbnail(_yt(), vid, data["thumb"]))
