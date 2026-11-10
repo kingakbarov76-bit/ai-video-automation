@@ -145,11 +145,13 @@ def fmt_single(ep, work):
         if i == nseg - 1: path, c = files[0]; off = 0.4
         else: path, c = files[i % k]; off = cur.take(c, fr[i])
         segs.append((path, off)); ov = f"{work}/card{i}.png"
-        if i == 0: render.card(ov, hook=HOOKS[ep % len(HOOKS)][0], hook2=HOOKS[ep % len(HOOKS)][1], label=pl["label"])
-        elif i == 1: render.card(ov, label=pl["label"])
-        elif i < mid_split: render.card(ov, fact=pl["f1"])
-        elif i < nseg - 1: render.card(ov, fact=pl["f2"])
-        else: render.card(ov, cta=CTAS[ep % len(CTAS)])
+        pg = (i + 1) / nseg
+        if i == 0: render.card(ov, hook=HOOKS[ep % len(HOOKS)][0], hook2=HOOKS[ep % len(HOOKS)][1], label=pl["label"], progress=pg)
+        elif i == 1: render.card(ov, label=pl["label"], progress=pg, tease="Stay for the last shot")
+        elif i < mid_split: render.card(ov, fact=pl["f1"], progress=pg)
+        elif i == mid_split: render.card(ov, fact=pl["f2"], progress=pg, tease="It gets better")
+        elif i < nseg - 1: render.card(ov, fact=pl["f2"], progress=pg)
+        else: render.card(ov, cta=CTAS[ep % len(CTAS)], progress=1.0, tease="Watch again: it loops")
         ovs.append(ov)
     log("hook: This place doesn't look real |", pl["label"])
     out = f"{work}/../video.mp4"

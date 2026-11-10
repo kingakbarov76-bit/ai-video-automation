@@ -269,7 +269,7 @@ def _box_lines(d, lines, f, y, fill=(255, 255, 255, 255), box=(0, 0, 0, 125), pa
         x = (HW - d.textlength(l, font=f)) / 2
         d.text((x, y + i * lh), l, font=f, fill=fill, stroke_width=2, stroke_fill=(0, 0, 0, 160))
     return y + lh * len(lines)
-def card(path, hook=None, hook2=None, label=None, num=None, fact=None, cta=None, badge=None, out_size=None):
+def card(path, hook=None, hook2=None, label=None, num=None, fact=None, cta=None, badge=None, out_size=None, progress=None, tease=None):
     """Transparent overlay: small, readable text inside the Shorts safe zone (centre band, away from the UI)."""
     im = Image.new("RGBA", (HW, HH), (0, 0, 0, 0)); d = ImageDraw.Draw(im); maxw = 820
     if badge:
@@ -297,6 +297,12 @@ def card(path, hook=None, hook2=None, label=None, num=None, fact=None, cta=None,
         f = _font(48); _box_lines(d, _wrap(d, fact, f, maxw), f, y0, box=(0, 0, 0, 115))
     if cta:
         f = _font(54); _box_lines(d, _wrap(d, cta, f, maxw), f, 1230, fill=(255, 236, 120, 255), box=(0, 0, 0, 135))
+    if tease:                                  # open-loop line: gives people a reason to stay until the end
+        f = _font(40); tw = d.textlength(tease, font=f); x = (HW - tw) / 2
+        d.rounded_rectangle([x - 22, 1085, x + tw + 22, 1141], radius=26, fill=(0, 0, 0, 125)); d.text((x, 1092), tease, font=f, fill=(255, 226, 40, 255))
+    if progress is not None:                   # thin progress bar: viewers see the end coming and stay for it
+        d.rounded_rectangle([60, 96, HW - 60, 104], radius=4, fill=(255, 255, 255, 70))
+        d.rounded_rectangle([60, 96, 60 + (HW - 120) * max(0.03, min(1, progress)), 104], radius=4, fill=(255, 255, 255, 235))
     if out_size and out_size != (HW, HH): im = im.resize(out_size, Image.LANCZOS)
     im.save(path)
 
