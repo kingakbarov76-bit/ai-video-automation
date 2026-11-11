@@ -370,15 +370,15 @@ def main(mode):
     acc, tok = env("CF_ACCOUNT_ID"), env("CF_API_TOKEN")
     log("cloudflare verify:", *cf_images.verify(acc, tok))
     if mode == "analyze":
-        vids = yt.my_videos_stats(_yt()); w, summ, top = analyze.run(vids, [t[0] for t in stock.THEMES]); log("ANALYSIS:", summ)
+        vids = yt.my_videos_stats(_yt(), limit=50); w, summ, top = analyze.run(vids, [t[0] for t in stock.THEMES]); log("ANALYSIS:", summ)
         for v in vids[:20]: log(f"  {v['id']} views={v['views']} likes={v['likes']} | {v['title'][:50]}")
         try: log("SOURCES:", json.dumps(yt.sources(_yt())))
         except Exception as ex: log("sources unavailable:", str(ex)[:160])
-        try:
-            ret = yt.retention(_yt())
-            for v in vids[:20]:
-                if v["id"] in ret: a = ret[v["id"]]; log(f"  RET {v['id']} avg={a['avg_s']:.0f}s pct={a['avg_pct']:.0f}% views={a['views']} | {v['title'][:40]}")
-        except Exception as ex: log("retention unavailable:", str(ex)[:160])
+        try: ret = yt.retention(_yt(), days=60, limit=200)
+        except Exception as ex: ret = {}; log("retention unavailable:", str(ex)[:160])
+        for v in vids:
+            a = ret.get(v["id"], {})
+            log(f"STAT {v['id']}|{v['published'][:16]}|views={v['views']}|likes={v['likes']}|avg_s={a.get('avg_s', -1):.0f}|avg_pct={a.get('avg_pct', -1):.0f}|{v['title'][:60]}")
         return
     if mode == "placescan": return place_scan()
     if mode == "check": mode = "dry_list"
