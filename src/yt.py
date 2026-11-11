@@ -119,3 +119,14 @@ def sources(access, days=7):
             params={"ids": "channel==MINE", "startDate": start.isoformat(), "endDate": end.isoformat(), "dimensions": dim, "metrics": "views", "sort": "-views"})
         out[dim] = {row[0]: row[1] for row in r.json().get("rows", [])} if r.status_code == 200 else f"HTTP {r.status_code}: {r.text[:120]}"
     return out
+
+def feed_stats(access, days=60, limit=200):
+    """Per-video stats counting ONLY views that came from the Shorts feed."""
+    import datetime as _d
+    end = _d.date.today(); start = end - _d.timedelta(days=days)
+    r = requests.get("https://youtubeanalytics.googleapis.com/v2/reports", headers={"Authorization": f"Bearer {access}"}, timeout=30,
+        params={"ids": "channel==MINE", "startDate": start.isoformat(), "endDate": end.isoformat(), "dimensions": "video",
+                "metrics": "views,averageViewDuration,averageViewPercentage", "filters": "insightTrafficSourceType==SHORTS",
+                "sort": "-views", "maxResults": limit})
+    if r.status_code != 200: raise RuntimeError(f"feed analytics HTTP {r.status_code}: {r.text[:200]}")
+    return {row[0]: {"views": row[1], "avg_s": row[2], "avg_pct": row[3]} for row in r.json().get("rows", [])}

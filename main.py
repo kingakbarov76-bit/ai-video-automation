@@ -376,9 +376,11 @@ def main(mode):
         except Exception as ex: log("sources unavailable:", str(ex)[:160])
         try: ret = yt.retention(_yt(), days=60, limit=200)
         except Exception as ex: ret = {}; log("retention unavailable:", str(ex)[:160])
+        try: feed = yt.feed_stats(_yt())
+        except Exception as ex: feed = {}; log("feed stats unavailable:", str(ex)[:160])
         for v in vids:
-            a = ret.get(v["id"], {})
-            log(f"STAT {v['id']}|{v['published'][:16]}|views={v['views']}|likes={v['likes']}|avg_s={a.get('avg_s', -1):.0f}|avg_pct={a.get('avg_pct', -1):.0f}|{v['title'][:60]}")
+            a = ret.get(v["id"], {}); f = feed.get(v["id"], {})
+            log(f"STAT {v['id']}|{v['published'][:16]}|views={v['views']}|likes={v['likes']}|avg_s={a.get('avg_s', -1):.0f}|avg_pct={a.get('avg_pct', -1):.0f}|feed_views={f.get('views', 0)}|feed_avg_s={f.get('avg_s', -1):.0f}|feed_avg_pct={f.get('avg_pct', -1):.0f}|{v['title'][:60]}")
         return
     if mode == "placescan": return place_scan()
     if mode == "check": mode = "dry_list"
