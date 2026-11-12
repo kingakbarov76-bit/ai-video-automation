@@ -196,7 +196,7 @@ def fmt_ambient(ep, work):
     from src import ambient
     pool = ambient.calm_places(places); D = ep // 3
     for j in range(8):
-        pl = pool[(D * 3 + j * 5) % len(pool)]
+        pl = pool[(ep * 7 + j * 5) % len(pool)]   # ep (not D): two ambient slots a day must not pick the same place
         if _crashed(ep, pl["label"]): log(f"ambient: skipping {pl['label']} (crashed the server before)"); continue
         _mark(ep, pl["label"])
         cl = [c for c in stock.place_clips(pl, 8, log, seed=ep + j) if c["dur"] >= 8][:4]; files = []
