@@ -1,0 +1,31 @@
+{
+ "video": "qNnWc7m6jIs",
+ "title": "Cinque Terre 🌿 calm nature sounds to relax #relaxing #nature #asmr #italy",
+ "music": "built-in synth",
+ "items": [
+  {
+   "place": "Cinque Terre, Italy",
+   "ambient": "ocean",
+   "clips": [
+    {
+     "src": "pexels",
+     "id": "px33987506",
+     "page": "https://www.pexels.com/video/scenic-coastline-of-cinque-terre-italy-33987506/",
+     "author": "Stephan Leuzinger"
+    },
+    {
+     "src": "pexels",
+     "id": "px33962741",
+     "page": "https://www.pexels.com/video/scenic-view-of-cinque-terre-coastline-33962741/",
+     "author": "Stephan Leuzinger"
+    },
+    {
+     "src": "pexels",
+     "id": "px33962737",
+     "page": "https://www.pexels.com/video/cinque-terre-scenic-coastline-with-rock-formation-33962737/",
+     "author": "Stephan Leuzinger"
+    }
+   ]
+  }
+ ]
+}
