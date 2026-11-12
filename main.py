@@ -1,4 +1,5 @@
 import time
+import requests
 import os, sys, json, random, datetime, traceback
 from src import scenes, cf_images, render, yt, stock, captions, analyze, aiplaces, places, dreamworld
 LOG = "logs/last_run.txt"
@@ -376,6 +377,16 @@ def main(mode):
         except Exception as ex: log("sources unavailable:", str(ex)[:160])
         try: ret = yt.retention(_yt(), days=60, limit=200)
         except Exception as ex: ret = {}; log("retention unavailable:", str(ex)[:160])
+        try:
+            _h = {"Authorization": f"Bearer {_yt()}"}
+            _r = requests.get("https://www.googleapis.com/youtube/v3/videos", headers=_h, timeout=30,
+                params={"part": "status,processingDetails,contentDetails", "id": ",".join(v["id"] for v in vids[:6])})
+            for it in _r.json().get("items", []):
+                st = it.get("status", {}); pd = it.get("processingDetails", {}); cd = it.get("contentDetails", {})
+                log("VSTATUS", it["id"], json.dumps({"privacy": st.get("privacyStatus"), "upload": st.get("uploadStatus"), "reject": st.get("rejectionReason"),
+                    "failure": st.get("failureReason"), "synthetic": st.get("containsSyntheticMedia"), "kids": st.get("madeForKids"), "proc": pd.get("processingStatus"),
+                    "dur": cd.get("duration"), "restr": cd.get("regionRestriction"), "claim": cd.get("contentRating")}))
+        except Exception as ex: log("vstatus unavailable:", str(ex)[:160])
         try: feed = yt.feed_stats(_yt())
         except Exception as ex: feed = {}; log("feed stats unavailable:", str(ex)[:160])
         for v in vids:
