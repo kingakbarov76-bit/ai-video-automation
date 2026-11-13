@@ -146,7 +146,7 @@ def describe(path, log=print):
     return ""
 
 # ---------- channel-name watermark ----------
-def brand(path, out, text="@dreamyearthh", log=print):
+def brand(path, out, text="Dreamy Earth", log=print):
     """Burns a small semi-transparent channel name into the upper third (clear of the Shorts UI). Returns out, or path on failure."""
     import subprocess
     from PIL import Image, ImageDraw, ImageFont
