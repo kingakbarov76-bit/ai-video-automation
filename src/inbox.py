@@ -3,7 +3,7 @@ GitHub branch `music-library` (survives Render restarts) and uploaded one by one
 import os, re, json, time, base64, requests
 from . import music
 
-TG = "https://api.telegram.org"
+TG = (os.environ.get("TG_API_BASE") or "https://api.telegram.org").rstrip("/")   # optional proxy (e.g. a Cloudflare Worker) if Telegram throttles this host
 MAX_BYTES = 20 * 1048576          # Telegram Bot API download limit
 SUB = "https://www.youtube.com/@dreamyearthh?sub_confirmation=1"
 BASE_TAGS = ["shorts", "nature", "travel", "beautiful places", "places on earth", "relaxing", "calm nature", "scenery"]
@@ -11,7 +11,7 @@ BASE_TAGS = ["shorts", "nature", "travel", "beautiful places", "places on earth"
 
 def _tok(): return os.environ.get("TG_BOT_TOKEN", "").strip()
 def _api(method, **kw):
-    r = requests.post(f"{TG}/bot{_tok()}/{method}", json=kw, timeout=70)
+    r = requests.post(f"{TG}/bot{_tok()}/{method}", json=kw, timeout=(10, 40))
     return r.json()
 def _say(chat, text):
     try: _api("sendMessage", chat_id=chat, text=text)
@@ -146,7 +146,7 @@ def poll_loop(log=print):
     log("INBOX: telegram polling started")
     while True:
         try:
-            r = requests.post(f"{TG}/bot{_tok()}/getUpdates", json={"timeout": 50, "offset": off, "allowed_updates": ["message", "channel_post"]}, timeout=70).json()
+            r = requests.post(f"{TG}/bot{_tok()}/getUpdates", json={"timeout": 20, "offset": off, "allowed_updates": ["message", "channel_post"]}, timeout=(10, 30)).json()
             for u in r.get("result", []):
                 off = u["update_id"] + 1
                 try:
