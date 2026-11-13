@@ -465,14 +465,14 @@ def do_brand():
     kw = 'travel nature "places on earth" "real places" scenery "beautiful places" dreamworld shorts'
     res = yt.brand(access, desc, kw, "out/banner.png"); log("brand:", res); return res
 def do_inbox():
-    """Auto-generated videos are OFF: upload the next video the owner sent through the Telegram bot (spacing 150 min, max 5 per 24 h)."""
+    """Auto-generated videos are OFF: upload the next video the owner sent through the Telegram bot (spacing 270 min, max 5 per 24 h)."""
     from src import inbox
     try: inbox.flush_outbox(log)
     except Exception as ex: log("INBOX outbox failed:", str(ex)[:150])
     try: inbox.maybe_report(yt, _yt(), log)          # statistics to the owner through the bot every ~8 h
     except Exception as ex: log("INBOX report failed:", str(ex)[:150])
     try:
-        if time.time() - float(open("/tmp/last_upload_ts").read()) < 150 * 60: log("SKIP: local guard (uploaded moments ago)"); return
+        if time.time() - float(open("/tmp/last_upload_ts").read()) < 270 * 60: log("SKIP: local guard (uploaded moments ago)"); return
     except (OSError, ValueError): pass
     if not inbox.pending():
         try: inbox.cleanup(log)
@@ -481,7 +481,7 @@ def do_inbox():
     if inbox._state().get("hold"): log("SKIP: queue is on hold until the owner confirms the videos are his own/licensed (/davom)"); return
     access = _yt()
     mins, n24 = yt.upload_stats(access)
-    if mins is not None and mins < 150: log(f"SKIP: last upload {mins:.0f} min ago"); return
+    if mins is not None and mins < 270: log(f"SKIP: last upload {mins:.0f} min ago"); return
     if n24 >= 5: log(f"SKIP: already {n24} uploads in last 24h (quota cap 5)"); return
     if inbox.upload_next(yt, access, log):
         try: open("/tmp/last_upload_ts", "w").write(str(time.time()))
