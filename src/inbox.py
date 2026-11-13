@@ -179,7 +179,7 @@ def brand(path, out, text="Dreamy Earth", log=print):
         w, h = [int(x) for x in subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
                 "-of", "csv=p=0:s=x", path], capture_output=True, text=True).stdout.strip().split("x")]
         if w > 1080: h = round(h * 1080 / w / 2) * 2; w = 1080
-        fs = max(22, int(w * 0.042)); font = None
+        fs = max(24, int(w * 0.05)); font = None
         for fp in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"):
             if os.path.exists(fp): font = ImageFont.truetype(fp, fs); break
         font = font or ImageFont.load_default()
