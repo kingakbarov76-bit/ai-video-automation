@@ -66,7 +66,9 @@ def _handle(m, log):
     chat = m["chat"]["id"]; uid = m.get("from", {}).get("id")
     st = _state(); owner = st.get("owner")
     txt = (m.get("text") or "").strip()
-    if owner is None:
+    allowed = {x.strip() for x in os.environ.get("TG_CHAT_IDS", "").split(",") if x.strip()}
+    if str(chat) in allowed: owner = uid = "chat"      # videos posted in the owner's own channel/group are trusted
+    elif owner is None:
         if txt.startswith("/start"):
             st["owner"] = uid; _save_state(st); owner = uid
             _say(chat, "Salom! Men Dreamy Earth boti. Video yuboring, izohga joy nomini yozing (masalan: Bali). "
@@ -99,11 +101,12 @@ def poll_loop(log=print):
     log("INBOX: telegram polling started")
     while True:
         try:
-            r = requests.post(f"{TG}/bot{_tok()}/getUpdates", json={"timeout": 50, "offset": off, "allowed_updates": ["message"]}, timeout=70).json()
+            r = requests.post(f"{TG}/bot{_tok()}/getUpdates", json={"timeout": 50, "offset": off, "allowed_updates": ["message", "channel_post"]}, timeout=70).json()
             for u in r.get("result", []):
                 off = u["update_id"] + 1
                 try:
-                    if "message" in u: _handle(u["message"], log)
+                    mm = u.get("message") or u.get("channel_post")
+                    if mm: _handle(mm, log)
                 except Exception as e: log("INBOX handle error:", type(e).__name__, str(e)[:150])
             if not r.get("ok", True): time.sleep(20)
         except Exception as e:
