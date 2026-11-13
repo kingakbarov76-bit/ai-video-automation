@@ -133,6 +133,8 @@ def _handle(m, log):
     cap = clean_cap(m.get("caption"))   # downloader-bot signatures are not titles
     # empty caption -> the scene is described automatically at upload time
     _put_store(f"inbox/pending/{base}.json", json.dumps({"caption": cap, "added": time.time(), "file_id": v["file_id"], "size": v.get("file_size", 0)}).encode(), f"inbox meta {base}")
+    try: _g = _api("getFile", file_id=v["file_id"]); log("INBOX getFile check at receive:", "ok" if (_g.get("result") or {}).get("file_path") else str(_g)[:150])
+    except Exception as e: log("INBOX getFile check at receive failed:", str(e)[:100])
     log(f"INBOX: queued {base} ({v.get('file_size', 0) // 1024} KB) caption={cap[:40]!r}")
     _say(chat, f"Qabul qilindi. Navbatda: {len(pending())} ta." + ("" if cap else " Sarlavhani o'zim topaman.") + (" Eslatma: " + ", ".join(notes) if notes else ""))
 
