@@ -464,6 +464,20 @@ def do_brand():
             "New videos every day. Subscribe and tell us which place you'd visit!")
     kw = 'travel nature "places on earth" "real places" scenery "beautiful places" dreamworld shorts'
     res = yt.brand(access, desc, kw, "out/banner.png"); log("brand:", res); return res
+def do_inbox():
+    """Auto-generated videos are OFF: upload the next video the owner sent through the Telegram bot (spacing 150 min, max 5 per 24 h)."""
+    from src import inbox
+    try:
+        if time.time() - float(open("/tmp/last_upload_ts").read()) < 150 * 60: log("SKIP: local guard (uploaded moments ago)"); return
+    except (OSError, ValueError): pass
+    if not inbox.pending(): log("SKIP: inbox empty (waiting for videos from the owner)"); return
+    access = _yt()
+    mins, n24 = yt.upload_stats(access)
+    if mins is not None and mins < 150: log(f"SKIP: last upload {mins:.0f} min ago"); return
+    if n24 >= 5: log(f"SKIP: already {n24} uploads in last 24h (quota cap 5)"); return
+    if inbox.upload_next(yt, access, log):
+        try: open("/tmp/last_upload_ts", "w").write(str(time.time()))
+        except OSError: pass
 import threading
 RUN_LOCK = threading.Lock()
 def execute(mode="run"):
@@ -483,7 +497,7 @@ def _execute(mode="run"):
             log("ttstest result:", r, "peak child RSS MB:", resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss // 1024)
         elif mode == "brand": do_brand()
         elif mode in ("run", "long") and os.environ.get("ALLOW_GENERATED") != "1":
-            log("SKIP: auto-generated videos are OFF (only user-supplied videos are uploaded). Set ALLOW_GENERATED=1 to re-enable.")
+            do_inbox()
         else: main(mode)
         log("RESULT: OK")
     except BaseException as e:

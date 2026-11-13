@@ -78,5 +78,8 @@ class H(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
 if __name__ == "__main__":
     # any wake-up (cron ping, deploy, visit) starts a run; the run itself skips if the slot is already done
+    if os.environ.get("TG_BOT_TOKEN"):
+        from src import inbox
+        threading.Thread(target=inbox.poll_loop, args=(lambda *a: print(*a, flush=True),), daemon=True).start()
     threading.Timer(40, lambda: start("run")).start()
     ThreadingHTTPServer(("0.0.0.0", int(os.environ.get("PORT", "10000"))), H).serve_forever()
