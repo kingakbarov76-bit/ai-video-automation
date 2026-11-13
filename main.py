@@ -415,6 +415,8 @@ def main(mode):
         from src import music
         if not dry: music.maybe_generate_daily(log)
         render.MUSIC_SRC = music.pick_track(ep, "out/work", log)
+        if not render.MUSIC_SRC:   # no library track: use the ready-made pool instead of the synth beat
+            _pt = ambient.pick_track(ep); render.MUSIC_SRC = _pt[0] if _pt else None
     except Exception as ex: log("music step skipped:", str(ex)[:120]); render.MUSIC_SRC = None
     if mode == "long": fmode = "long"
     if fmode == "run": fmode = ["ambient", "single", "ambient"][k]   # real places only; 04:00 and 20:00 Tashkent = US evening / morning

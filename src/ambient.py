@@ -161,7 +161,6 @@ def _run(cmd):
 def pick_track(seed):
     """Returns (path, credit_line) for ready-made music on 2 of 3 days, else None (own synthesized music)."""
     base = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets")
-    if (seed // 3) % 3 == 0: return None
     cc0 = os.path.join(base, "first_light_particles.mp3")
     gen = sorted(glob.glob(os.path.join(base, "music", "*.mp3")))
     pool = ([(cc0, "Music: 'First Light Particles' by Yoiyami (CC0, public domain).")] if os.path.exists(cc0) else []) + \
