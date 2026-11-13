@@ -62,19 +62,23 @@ def pending():
 # ---------- metadata ----------
 def _words(s): return [w for w in re.findall(r"[A-Za-z][A-Za-z'-]{2,}", s)]
 def make_meta(caption):
-    """caption: 'Title | extra description'. Title = place name -> search-style title."""
+    """Search-oriented title/description/tags from a short scene phrase (or the owner's caption: 'Title | extra')."""
     cap = (caption or "").strip()
-    title_src, _, extra = cap.partition("|")
-    title_src = re.sub(r"\s+", " ", title_src).strip(" -:.")
-    if not title_src: title_src = "Beautiful place on Earth"
-    if len(title_src) > 60 or title_src.count(" ") > 6: title = title_src[:100]
-    else: title = f"{title_src} \U0001F33F calm nature sounds to relax"
-    words = _words(title_src)
-    ht = ["#shorts", "#nature", "#travel"] + [("#" + "".join(words[:2]).lower())] if words else ["#shorts", "#nature", "#travel"]
-    desc = (f"{title_src}.\n" + (extra.strip() + "\n" if extra.strip() else "") +
-            f"\nSubscribe for more beautiful places: {SUB}\n\n" +
-            f"{' '.join(dict.fromkeys(ht))} #beautifulplaces #relaxing")
-    tags = list(dict.fromkeys([title_src] + words[:4] + BASE_TAGS))[:15]
+    scene, _, extra = cap.partition("|")
+    scene = re.sub(r"\s+", " ", scene).strip(" -:.") or "Beautiful nature scenery"
+    scene = scene[:1].upper() + scene[1:]
+    title = f"{scene} \U0001F33F Relaxing Nature Sounds to Calm Your Mind"
+    if len(title) > 100: title = f"{scene[:60]} \U0001F33F Relaxing Nature Sounds"
+    words = [w.lower() for w in _words(scene)]
+    desc = (f"{scene}. Relax with calming nature scenery and soothing sounds, perfect for sleep, study, meditation and stress relief.\n"
+            + (extra.strip() + "\n" if extra.strip() else "") +
+            "\n#nature #relaxing #calmnature\n\n"
+            f"\U0001F30D Dreamy Earth shows the most beautiful places on Earth. Subscribe for a new calming nature video every day: {SUB}\n\n"
+            "Watch for: relaxing nature sounds, calm nature video, nature ambience, beautiful scenery, nature sounds for sleep, "
+            "peaceful nature, scenic views, nature relaxation, travel destinations, places on earth.\n\n"
+            "#shorts #naturesounds #scenery #beautifulplaces #travel")
+    tags = list(dict.fromkeys([scene.lower()] + words[:5] + ["relaxing nature sounds", "nature sounds", "calm nature", "nature ambience",
+            "nature for sleep", "relaxing videos", "beautiful nature", "scenic nature", "nature shorts", "travel", "shorts"]))[:15]
     return title, desc, tags
 
 # ---------- Telegram polling ----------
@@ -175,13 +179,13 @@ def brand(path, out, text="Dreamy Earth", log=print):
         w, h = [int(x) for x in subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
                 "-of", "csv=p=0:s=x", path], capture_output=True, text=True).stdout.strip().split("x")]
         if w > 1080: h = round(h * 1080 / w / 2) * 2; w = 1080
-        fs = max(24, int(w * 0.05)); font = None
+        fs = max(22, int(w * 0.042)); font = None
         for fp in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"):
             if os.path.exists(fp): font = ImageFont.truetype(fp, fs); break
         font = font or ImageFont.load_default()
         im = Image.new("RGBA", (w, h), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
-        tw = d.textlength(text, font=font); x = (w - tw) / 2; y = int(h * 0.13)
-        d.text((x + 2, y + 2), text, font=font, fill=(0, 0, 0, 110)); d.text((x, y), text, font=font, fill=(255, 255, 255, 175))
+        x = int(w * 0.04); y = int(h * 0.125)
+        d.text((x + 2, y + 2), text, font=font, fill=(0, 0, 0, 110)); d.text((x, y), text, font=font, fill=(255, 255, 255, 200))
         png = path + ".wm.png"; im.save(png)
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", path, "-i", png, "-filter_complex",
                         f"[0:v]scale={w}:{h}[b];[b][1:v]overlay=0:0,format=yuv420p[v]", "-map", "[v]", "-map", "0:a?", "-c:v", "libx264",
@@ -243,8 +247,8 @@ def upload_next(yt_mod, access, log=print, work="out"):
         from . import igpost
         os.makedirs("out/ig", exist_ok=True); igf = f"out/ig/{vid}.mp4"; import shutil; shutil.copy(path, igf)
         base_url = os.environ.get("RENDER_EXTERNAL_URL", "https://yt-auto-shorts.onrender.com").rstrip("/")
-        igpost.publish_reel(f"{base_url}/media/{vid}.mp4", title + "\n\n" + desc.split("Subscribe for more")[0].strip() + "\n\nFollow @dreamyearthh\n" +
-                            " ".join(re.findall(r"#\w+", desc)), log)
+        igpost.publish_reel(f"{base_url}/media/{vid}.mp4", title + "\n\nFollow @dreamyearthh for more beautiful places\n" +
+                            "#nature #relaxing #calmnature #naturesounds #scenery #beautifulplaces #travel #reels #asmr #peaceful", log)
     except Exception as e: log("IG failed (YouTube upload is fine):", str(e)[:200])
     finally:
         try: os.remove(f"out/ig/{vid}.mp4")
