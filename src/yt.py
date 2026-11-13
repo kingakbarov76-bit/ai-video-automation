@@ -11,7 +11,7 @@ def upload(access, path, title, description, tags, privacy="public", synthetic=T
     if _h:
         title = re.sub(r"\s*#[A-Za-z]\w*", "", title).strip()
         description = description.rstrip() + "\n" + " ".join(_h[:3])
-    meta = {"snippet": {"title": title[:100], "description": description[:4900], "tags": tags, "categoryId": category},
+    meta = {"snippet": {"title": title[:100], "description": description[:4900], "tags": tags, "categoryId": category, "defaultLanguage": "en", "defaultAudioLanguage": "en"},
             "status": {"privacyStatus": privacy, "selfDeclaredMadeForKids": False, "containsSyntheticMedia": synthetic}}
     size = os.path.getsize(path)
     h = {"Authorization": f"Bearer {access}", "Content-Type": "application/json; charset=UTF-8",
