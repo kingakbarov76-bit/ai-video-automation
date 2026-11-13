@@ -55,6 +55,10 @@ def pending():
     return [(f["name"][:-5], f["sha"], None) for f in sorted(_list("inbox/pending", STORE), key=lambda f: f["name"]) if f["name"].endswith(".json")]
 
 # ---------- metadata ----------
+def clean_cap(cap):
+    """Drop zero-width chars and downloader-bot signature lines (e.g. '@utezbot orqali yuklab olindi')."""
+    cap = re.sub(r"[\u200b\u200c\u200d\ufeff]", "", cap or "")
+    return "\n".join(l for l in cap.splitlines() if "utezbot" not in l.lower() and "yuklab olindi" not in l.lower() and "📥" not in l).strip()
 def _words(s): return [w for w in re.findall(r"[A-Za-z][A-Za-z'-]{2,}", s)]
 def make_meta(caption):
     """Search-oriented title/description/tags from a short scene phrase (or the owner's caption: 'Title | extra')."""
@@ -126,8 +130,7 @@ def _handle(m, log):
     if w and h and w > h: notes.append("gorizontal (Shorts bo'lmaydi)")
     if dur > 180: notes.append("180 soniyadan uzun (Shorts bo'lmaydi)")
     base = f"{int(time.time())}_{v.get('file_unique_id', 'x')}"
-    cap = re.sub(r"[\u200b\u200c\u200d\ufeff]", "", m.get("caption") or "")
-    cap = "\n".join(l for l in cap.splitlines() if "utezbot" not in l.lower() and "yuklab olindi" not in l.lower()).strip()   # downloader-bot signatures are not titles
+    cap = clean_cap(m.get("caption"))   # downloader-bot signatures are not titles
     # empty caption -> the scene is described automatically at upload time
     _put_store(f"inbox/pending/{base}.json", json.dumps({"caption": cap, "added": time.time(), "file_id": v["file_id"], "size": v.get("file_size", 0)}).encode(), f"inbox meta {base}")
     log(f"INBOX: queued {base} ({v.get('file_size', 0) // 1024} KB) caption={cap[:40]!r}")
@@ -252,7 +255,7 @@ def upload_next(yt_mod, access, log=print, work="out"):
         open(path, "wb").write(requests.get(f"{TG}/file/bot{_tok()}/{fp}", timeout=180).content)
     else:      # legacy item queued before the file_id change: the video itself is on the store branch
         open(path, "wb").write(_get_bytes(f"inbox/pending/{base}.mp4", STORE))
-    cap = (meta.get("caption") or "").strip() or describe(path, log)
+    cap = clean_cap(meta.get("caption")) or describe(path, log)
     log("INBOX caption used:", cap[:60])
     title, desc, tags = make_meta(cap)
     path = brand(path, f"{work}/inbox_wm.mp4", log=log)
