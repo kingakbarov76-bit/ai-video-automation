@@ -467,6 +467,8 @@ def do_brand():
 def do_inbox():
     """Auto-generated videos are OFF: upload the next video the owner sent through the Telegram bot (spacing 150 min, max 5 per 24 h)."""
     from src import inbox
+    try: inbox.flush_outbox(log)
+    except Exception as ex: log("INBOX outbox failed:", str(ex)[:150])
     try: inbox.maybe_report(yt, _yt(), log)          # statistics to the owner through the bot every ~8 h
     except Exception as ex: log("INBOX report failed:", str(ex)[:150])
     try:

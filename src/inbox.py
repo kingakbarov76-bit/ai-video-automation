@@ -194,6 +194,16 @@ def maybe_report(yt_mod, access, log=print, every_h=8, force=False):
     for c in report_targets(): _say(c, txt)
     st["last_report"] = time.time(); _save_state(st); log("INBOX: stats report sent")
 
+# ---------- outbox: messages written by other jobs (e.g. Instagram posting/stats) are forwarded to Telegram ----------
+def flush_outbox(log=print):
+    for f in _list("inbox/outbox"):
+        if not f["name"].endswith(".txt"): continue
+        try:
+            txt = _get_bytes(f"inbox/outbox/{f['name']}").decode()[:3500]
+            for c in report_targets(): _say(c, txt)
+            _delete(f"inbox/outbox/{f['name']}", f["sha"]); log("INBOX: outbox message sent:", f["name"])
+        except Exception as e: log("INBOX outbox error:", str(e)[:120])
+
 # ---------- upload ----------
 def upload_next(yt_mod, access, log=print, work="out"):
     items = pending()
@@ -220,7 +230,6 @@ def upload_next(yt_mod, access, log=print, work="out"):
         except OSError: pass
     _delete(f"inbox/pending/{base}.mp4", sm); _delete(f"inbox/pending/{base}.json", sj)
     try:
-        st = _state()
-        if st.get("owner"): _say(st["owner"], f"Yuklandi: https://youtube.com/shorts/{vid}\nNavbatda qoldi: {len(items) - 1}")
+        for c in report_targets(): _say(c, f"\u25B6\uFE0F YouTube'ga joylandi: {title}\nhttps://youtube.com/shorts/{vid}\nNavbatda qoldi: {len(items) - 1}")
     except Exception: pass
     return True
