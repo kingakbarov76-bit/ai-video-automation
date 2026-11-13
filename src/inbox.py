@@ -144,6 +144,8 @@ def poll_loop(log=print):
     except Exception as e: log("inbox branch:", str(e)[:100])
     off = None
     log("INBOX: telegram polling started")
+    try: log("INBOX getMe:", str(_api("getMe"))[:120]); log("INBOX webhook:", str(_api("getWebhookInfo"))[:200])
+    except Exception as e: log("INBOX getMe failed:", str(e)[:100])
     while True:
         try:
             r = requests.post(f"{TG}/bot{_tok()}/getUpdates", json={"timeout": 20, "offset": off, "allowed_updates": ["message", "channel_post"]}, timeout=(10, 30)).json()
@@ -153,7 +155,7 @@ def poll_loop(log=print):
                     mm = u.get("message") or u.get("channel_post")
                     if mm: _handle(mm, log)
                 except Exception as e: log("INBOX handle error:", type(e).__name__, str(e)[:150])
-            if not r.get("ok", True): time.sleep(20)
+            if not r.get("ok", True): log("INBOX getUpdates not ok:", str(r)[:160]); time.sleep(20)
         except Exception as e:
             log("INBOX poll error:", str(e)[:100]); time.sleep(10)
 
