@@ -103,8 +103,12 @@ def _handle(m, log):
             for c in (owner_targets() or [chat]): _say(c, stats_text(_y, _m._yt()))
         except Exception as e: _say(chat, "Statistikani olib bo'lmadi: " + str(e)[:100])
         return
+    if txt.startswith("/davom"):
+        st["hold"] = False; _save_state(st); _say(chat, "Tasdiqlandi: videolar sizniki yoki ishlatishga ruxsati bor. Yuklash davom etadi."); return
+    if txt.startswith("/toxta"):
+        st["hold"] = True; _save_state(st); _say(chat, "Yuklash to'xtatildi. Davom ettirish: /davom"); return
     if txt.startswith("/status") or txt.startswith("/start"):
-        _say(chat, f"Navbatda: {len(pending())} ta video."); return
+        _say(chat, f"Navbatda: {len(pending())} ta video." + (" (To'xtatilgan: /davom)" if st.get("hold") else "")); return
     v = m.get("video") or (m.get("document") if str((m.get("document") or {}).get("mime_type", "")).startswith("video/") else None)
     if not v:
         _say(chat, "Video yuboring (izohga joy nomi). /status - navbat."); return
@@ -122,7 +126,9 @@ def _handle(m, log):
     if w and h and w > h: notes.append("gorizontal (Shorts bo'lmaydi)")
     if dur > 180: notes.append("180 soniyadan uzun (Shorts bo'lmaydi)")
     base = f"{int(time.time())}_{v.get('file_unique_id', 'x')}"
-    cap = (m.get("caption") or "").strip()      # empty caption -> the scene is described automatically at upload time
+    cap = re.sub(r"[\u200b\u200c\u200d\ufeff]", "", m.get("caption") or "")
+    cap = "\n".join(l for l in cap.splitlines() if "utezbot" not in l.lower() and "yuklab olindi" not in l.lower()).strip()   # downloader-bot signatures are not titles
+    # empty caption -> the scene is described automatically at upload time
     _put_store(f"inbox/pending/{base}.json", json.dumps({"caption": cap, "added": time.time(), "file_id": v["file_id"], "size": v.get("file_size", 0)}).encode(), f"inbox meta {base}")
     log(f"INBOX: queued {base} ({v.get('file_size', 0) // 1024} KB) caption={cap[:40]!r}")
     _say(chat, f"Qabul qilindi. Navbatda: {len(pending())} ta." + ("" if cap else " Sarlavhani o'zim topaman.") + (" Eslatma: " + ", ".join(notes) if notes else ""))

@@ -478,6 +478,7 @@ def do_inbox():
         try: inbox.cleanup(log)
         except Exception as ex: log("INBOX cleanup failed:", str(ex)[:120])
         log("SKIP: inbox empty (waiting for videos from the owner)"); return
+    if inbox._state().get("hold"): log("SKIP: queue is on hold until the owner confirms the videos are his own/licensed (/davom)"); return
     access = _yt()
     mins, n24 = yt.upload_stats(access)
     if mins is not None and mins < 150: log(f"SKIP: last upload {mins:.0f} min ago"); return
