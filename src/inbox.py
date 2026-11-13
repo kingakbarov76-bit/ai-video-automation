@@ -195,7 +195,7 @@ def brand(path, out, text="Dreamy Earth", log=print):
             if os.path.exists(fp): font = ImageFont.truetype(fp, fs); break
         font = font or ImageFont.load_default()
         im = Image.new("RGBA", (w, h), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
-        x = int(w * 0.04); y = int(h * 0.125)
+        x = int(w * 0.05); y = int(h * 0.075)
         d.text((x + 2, y + 2), text, font=font, fill=(0, 0, 0, 110)); d.text((x, y), text, font=font, fill=(255, 255, 255, 200))
         png = path + ".wm.png"; im.save(png)
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", path, "-i", png, "-filter_complex",
