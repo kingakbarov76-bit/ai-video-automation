@@ -246,12 +246,22 @@ def flush_outbox(log=print):
 def upload_next(yt_mod, access, log=print, work="out"):
     items = pending()
     if not items: log("INBOX: empty, nothing to upload"); return False
-    base, sj, sm = items[0]
-    meta = json.loads(_get_bytes(f"inbox/pending/{base}.json", STORE).decode())
     os.makedirs(work, exist_ok=True); path = f"{work}/inbox.mp4"
+    fp = None
+    for k, (base, sj, sm) in enumerate(items[:4]):      # a video Telegram refuses must not block the ones behind it
+        meta = json.loads(_get_bytes(f"inbox/pending/{base}.json", STORE).decode())
+        if not meta.get("file_id"): break
+        for _try in range(2):
+            try: r = _api("getFile", file_id=meta["file_id"])
+            except Exception as e: r = {"description": str(e)[:100]}
+            fp = (r.get("result") or {}).get("file_path")
+            if fp: break
+            time.sleep(3)
+        if fp: break
+        log(f"INBOX getFile failed for {base}: {str(r)[:200]} -> trying next")
+    else:
+        if not fp: raise RuntimeError("telegram getFile failed for all of the first queued videos")
     if meta.get("file_id"):
-        fp = _api("getFile", file_id=meta["file_id"]).get("result", {}).get("file_path")
-        if not fp: raise RuntimeError("telegram getFile failed for " + base)
         open(path, "wb").write(requests.get(f"{TG}/file/bot{_tok()}/{fp}", timeout=180).content)
     else:      # legacy item queued before the file_id change: the video itself is on the store branch
         open(path, "wb").write(_get_bytes(f"inbox/pending/{base}.mp4", STORE))
