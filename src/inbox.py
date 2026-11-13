@@ -19,19 +19,40 @@ def _say(chat, text):
 
 # ---------- GitHub storage (branch music-library, folder inbox/) ----------
 def _contents(path): return f"{music.GH}/repos/{music.REPO}/contents/{path}"
-def _list(path):
-    r = requests.get(_contents(path), headers=music._gh(), params={"ref": music.BRANCH}, timeout=30)
+def _list(path, br=None):
+    r = requests.get(_contents(path), headers=music._gh(), params={"ref": br or music.BRANCH}, timeout=30)
     return r.json() if r.status_code == 200 and isinstance(r.json(), list) else []
-def _get_bytes(path):
+def _get_bytes(path, br=None):
     h = dict(music._gh()); h["Accept"] = "application/vnd.github.raw"
-    r = requests.get(_contents(path), headers=h, params={"ref": music.BRANCH}, timeout=120)
+    r = requests.get(_contents(path), headers=h, params={"ref": br or music.BRANCH}, timeout=120)
     r.raise_for_status(); return r.content
-def _delete(path, sha):
+def _delete(path, sha, br=None):
     requests.delete(_contents(path), headers=music._gh(), timeout=60,
-                    json={"message": f"inbox done {path}", "sha": sha, "branch": music.BRANCH})
+                    json={"message": f"inbox done {path}", "sha": sha, "branch": br or music.BRANCH})
+# Videos live on their own branch so it can be wiped from time to time (git history would otherwise keep every video forever).
+STORE = "inbox-store"
+def _ensure_store():
+    g = f"{music.GH}/repos/{music.REPO}/git"
+    if requests.get(f"{g}/ref/heads/{STORE}", headers=music._gh(), timeout=30).status_code == 200: return
+    main = requests.get(f"{g}/ref/heads/main", headers=music._gh(), timeout=30).json()["object"]["sha"]
+    r = requests.post(f"{g}/refs", headers=music._gh(), json={"ref": f"refs/heads/{STORE}", "sha": main}, timeout=30)
+    if r.status_code not in (200, 201): raise RuntimeError(f"store branch: {r.status_code} {r.text[:150]}")
+def _put_store(path, data, msg):
+    _ensure_store()
+    old = requests.get(_contents(path), headers=music._gh(), params={"ref": STORE}, timeout=30)
+    body = {"message": msg, "branch": STORE, "content": base64.b64encode(data).decode()}
+    if old.status_code == 200: body["sha"] = old.json()["sha"]
+    r = requests.put(_contents(path), headers=music._gh(), json=body, timeout=180)
+    if r.status_code not in (200, 201): raise RuntimeError(f"store put {path}: HTTP {r.status_code} {r.text[:150]}")
+def cleanup(log=print):
+    """Queue empty and not done for 20 h: delete the store branch (frees old video blobs); it is recreated on the next video."""
+    st = _state()
+    if time.time() - st.get("last_clean", 0) < 20 * 3600 or pending(): return
+    r = requests.delete(f"{music.GH}/repos/{music.REPO}/git/refs/heads/{STORE}", headers=music._gh(), timeout=30)
+    st["last_clean"] = time.time(); _save_state(st); log("INBOX: store branch wiped", r.status_code)
 def pending():
     """[(base_name, sha_json, sha_mp4)] oldest first."""
-    fs = {f["name"]: f for f in _list("inbox/pending")}
+    fs = {f["name"]: f for f in _list("inbox/pending", STORE)}
     out = []
     for n, f in sorted(fs.items()):
         if n.endswith(".json") and n[:-5] + ".mp4" in fs:
@@ -95,8 +116,8 @@ def _handle(m, log):
     data = requests.get(f"{TG}/file/bot{_tok()}/{fp}", timeout=120).content
     base = f"{int(time.time())}_{v.get('file_unique_id', 'x')}"
     cap = (m.get("caption") or "").strip()      # empty caption -> the scene is described automatically at upload time
-    music._put(f"inbox/pending/{base}.mp4", data, f"inbox video {base}")
-    music._put(f"inbox/pending/{base}.json", json.dumps({"caption": cap, "added": time.time()}).encode(), f"inbox meta {base}")
+    _put_store(f"inbox/pending/{base}.mp4", data, f"inbox video {base}")
+    _put_store(f"inbox/pending/{base}.json", json.dumps({"caption": cap, "added": time.time()}).encode(), f"inbox meta {base}")
     log(f"INBOX: queued {base} ({len(data) // 1024} KB) caption={cap[:40]!r}")
     _say(chat, f"Qabul qilindi. Navbatda: {len(pending())} ta." + ("" if cap else " Sarlavhani o'zim topaman."))
 
@@ -209,9 +230,9 @@ def upload_next(yt_mod, access, log=print, work="out"):
     items = pending()
     if not items: log("INBOX: empty, nothing to upload"); return False
     base, sj, sm = items[0]
-    meta = json.loads(_get_bytes(f"inbox/pending/{base}.json").decode())
+    meta = json.loads(_get_bytes(f"inbox/pending/{base}.json", STORE).decode())
     os.makedirs(work, exist_ok=True); path = f"{work}/inbox.mp4"
-    open(path, "wb").write(_get_bytes(f"inbox/pending/{base}.mp4"))
+    open(path, "wb").write(_get_bytes(f"inbox/pending/{base}.mp4", STORE))
     cap = (meta.get("caption") or "").strip() or describe(path, log)
     log("INBOX caption used:", cap[:60])
     title, desc, tags = make_meta(cap)
@@ -228,7 +249,7 @@ def upload_next(yt_mod, access, log=print, work="out"):
     finally:
         try: os.remove(f"out/ig/{vid}.mp4")
         except OSError: pass
-    _delete(f"inbox/pending/{base}.mp4", sm); _delete(f"inbox/pending/{base}.json", sj)
+    _delete(f"inbox/pending/{base}.mp4", sm, STORE); _delete(f"inbox/pending/{base}.json", sj, STORE)
     try:
         for c in channel_targets(): _say(c, f"\U0001F30D Dreamy Earth\n\u25B6\uFE0F YouTube'ga joylandi: {title}\nhttps://youtube.com/shorts/{vid}\nNavbatda qoldi: {len(items) - 1}")
     except Exception: pass

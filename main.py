@@ -474,7 +474,10 @@ def do_inbox():
     try:
         if time.time() - float(open("/tmp/last_upload_ts").read()) < 150 * 60: log("SKIP: local guard (uploaded moments ago)"); return
     except (OSError, ValueError): pass
-    if not inbox.pending(): log("SKIP: inbox empty (waiting for videos from the owner)"); return
+    if not inbox.pending():
+        try: inbox.cleanup(log)
+        except Exception as ex: log("INBOX cleanup failed:", str(ex)[:120])
+        log("SKIP: inbox empty (waiting for videos from the owner)"); return
     access = _yt()
     mins, n24 = yt.upload_stats(access)
     if mins is not None and mins < 150: log(f"SKIP: last upload {mins:.0f} min ago"); return
