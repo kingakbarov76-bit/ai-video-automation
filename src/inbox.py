@@ -135,6 +135,30 @@ def describe(path, log=print):
     except Exception as e: log("INBOX describe failed:", str(e)[:120])
     return ""
 
+# ---------- channel-name watermark ----------
+def brand(path, out, text="@dreamyearthh", log=print):
+    """Burns a small semi-transparent channel name into the upper third (clear of the Shorts UI). Returns out, or path on failure."""
+    import subprocess
+    from PIL import Image, ImageDraw, ImageFont
+    try:
+        w, h = [int(x) for x in subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
+                "-of", "csv=p=0:s=x", path], capture_output=True, text=True).stdout.strip().split("x")]
+        if w > 1080: h = round(h * 1080 / w / 2) * 2; w = 1080
+        fs = max(24, int(w * 0.05)); font = None
+        for fp in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"):
+            if os.path.exists(fp): font = ImageFont.truetype(fp, fs); break
+        font = font or ImageFont.load_default()
+        im = Image.new("RGBA", (w, h), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+        tw = d.textlength(text, font=font); x = (w - tw) / 2; y = int(h * 0.13)
+        d.text((x + 2, y + 2), text, font=font, fill=(0, 0, 0, 110)); d.text((x, y), text, font=font, fill=(255, 255, 255, 175))
+        png = path + ".wm.png"; im.save(png)
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", path, "-i", png, "-filter_complex",
+                        f"[0:v]scale={w}:{h}[b];[b][1:v]overlay=0:0,format=yuv420p[v]", "-map", "[v]", "-map", "0:a?", "-c:v", "libx264",
+                        "-preset", "veryfast", "-crf", "23", "-threads", "1", "-c:a", "copy", "-movflags", "+faststart", out], check=True, timeout=600)
+        return out
+    except Exception as e:
+        log("INBOX brand failed, uploading without watermark:", str(e)[:150]); return path
+
 # ---------- upload ----------
 def upload_next(yt_mod, access, log=print, work="out"):
     items = pending()
@@ -146,6 +170,7 @@ def upload_next(yt_mod, access, log=print, work="out"):
     cap = (meta.get("caption") or "").strip() or describe(path, log)
     log("INBOX caption used:", cap[:60])
     title, desc, tags = make_meta(cap)
+    path = brand(path, f"{work}/inbox_wm.mp4", log=log)
     vid, privacy = yt_mod.upload(access, path, title, desc, tags, synthetic=False)
     log("uploaded:", vid, "privacy:", privacy, "| title:", title, f"| inbox left: {len(items) - 1}")
     _delete(f"inbox/pending/{base}.mp4", sm); _delete(f"inbox/pending/{base}.json", sj)
