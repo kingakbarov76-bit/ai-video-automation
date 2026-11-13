@@ -464,15 +464,27 @@ def do_brand():
             "New videos every day. Subscribe and tell us which place you'd visit!")
     kw = 'travel nature "places on earth" "real places" scenery "beautiful places" dreamworld shorts'
     res = yt.brand(access, desc, kw, "out/banner.png"); log("brand:", res); return res
+INBOX_SLOTS_T = [18, 22, 1, 4, 7]   # Tashkent hours = 8 AM, 12 PM, 3 PM, 6 PM, 9 PM US Eastern (US audience prime times)
+def inbox_slot_age(now=None):
+    """Minutes since the start of the current upload slot (window 90 min), else None."""
+    now = now or (datetime.datetime.utcnow() + datetime.timedelta(hours=5)); best = None
+    for h in INBOX_SLOTS_T:
+        st = now.replace(hour=h, minute=0, second=0, microsecond=0)
+        if st > now: st -= datetime.timedelta(days=1)
+        age = (now - st).total_seconds() / 60
+        if age < 90 and (best is None or age < best): best = age
+    return best
 def do_inbox():
-    """Auto-generated videos are OFF: upload the next video the owner sent through the Telegram bot (spacing 270 min, max 5 per 24 h)."""
+    """Auto-generated videos are OFF: upload the next video the owner sent through the Telegram bot, one per US-audience slot (max 5 per 24 h)."""
     from src import inbox
     try: inbox.flush_outbox(log)
     except Exception as ex: log("INBOX outbox failed:", str(ex)[:150])
     try: inbox.maybe_report(yt, _yt(), log)          # statistics to the owner through the bot every ~8 h
     except Exception as ex: log("INBOX report failed:", str(ex)[:150])
+    age = inbox_slot_age()
+    if age is None: log("SKIP: not an upload slot (slots Tashkent 18, 22, 01, 04, 07)"); return
     try:
-        if time.time() - float(open("/tmp/last_upload_ts").read()) < 270 * 60: log("SKIP: local guard (uploaded moments ago)"); return
+        if time.time() - float(open("/tmp/last_upload_ts").read()) < age * 60: log("SKIP: this slot already uploaded (local guard)"); return
     except (OSError, ValueError): pass
     if not inbox.pending():
         try: inbox.cleanup(log)
@@ -481,7 +493,7 @@ def do_inbox():
     if inbox._state().get("hold"): log("SKIP: queue is on hold until the owner confirms the videos are his own/licensed (/davom)"); return
     access = _yt()
     mins, n24 = yt.upload_stats(access)
-    if mins is not None and mins < 270: log(f"SKIP: last upload {mins:.0f} min ago"); return
+    if mins is not None and mins < age: log(f"SKIP: this slot already uploaded ({mins:.0f} min ago)"); return
     if n24 >= 5: log(f"SKIP: already {n24} uploads in last 24h (quota cap 5)"); return
     if inbox.upload_next(yt, access, log):
         try: open("/tmp/last_upload_ts", "w").write(str(time.time()))
