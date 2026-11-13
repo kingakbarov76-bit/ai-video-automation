@@ -80,7 +80,7 @@ def _handle(m, log):
         try:
             from src import yt as _y
             import main as _m
-            _say(chat, stats_text(_y, _m._yt()))
+            for c in (owner_targets() or [chat]): _say(c, stats_text(_y, _m._yt()))
         except Exception as e: _say(chat, "Statistikani olib bo'lmadi: " + str(e)[:100])
         return
     if txt.startswith("/status") or txt.startswith("/start"):
@@ -175,23 +175,22 @@ def stats_text(yt_mod, access):
     ch = requests.get("https://www.googleapis.com/youtube/v3/channels", headers=h, params={"part": "statistics", "mine": "true"}, timeout=30).json()["items"][0]["statistics"]
     vids = yt_mod.my_videos_stats(access, limit=50)
     vids.sort(key=lambda v: v["published"], reverse=True)
-    lines = [f"\U0001F4CA Dreamy Earth statistikasi", f"Obunachilar: {ch.get('subscriberCount', '?')} | Jami ko'rish: {ch.get('viewCount', '?')} | Videolar: {ch.get('videoCount', '?')}",
+    lines = [f"\U0001F30D Dreamy Earth\n\U0001F4CA YouTube statistikasi", f"Obunachilar: {ch.get('subscriberCount', '?')} | Jami ko'rish: {ch.get('viewCount', '?')} | Videolar: {ch.get('videoCount', '?')}",
              f"Navbatda: {len(pending())} ta video", "", "So'nggi videolar:"]
     for v in vids[:6]:
         lines.append(f"- {v['title'][:45]}: {v['views']} ko'rish, {v['likes']} layk ({v['published'][5:10]})")
     top = sorted(vids, key=lambda v: v["views"], reverse=True)[:1]
     if top: lines += ["", f"Eng ko'p ko'rilgan: {top[0]['title'][:45]} ({top[0]['views']})"]
     return "\n".join(lines)
-def report_targets():
-    st = _state(); t = []
-    if st.get("owner"): t.append(st["owner"])
-    t += [x.strip() for x in os.environ.get("TG_CHAT_IDS", "").split(",") if x.strip()]
-    return t
+def owner_targets():
+    st = _state(); return [st["owner"]] if st.get("owner") else []
+def channel_targets():
+    return [x.strip() for x in os.environ.get("TG_CHAT_IDS", "").split(",") if x.strip()]
 def maybe_report(yt_mod, access, log=print, every_h=8, force=False):
     st = _state()
     if not force and time.time() - st.get("last_report", 0) < every_h * 3600: return
     txt = stats_text(yt_mod, access)
-    for c in report_targets(): _say(c, txt)
+    for c in owner_targets(): _say(c, txt)
     st["last_report"] = time.time(); _save_state(st); log("INBOX: stats report sent")
 
 # ---------- outbox: messages written by other jobs (e.g. Instagram posting/stats) are forwarded to Telegram ----------
@@ -200,7 +199,8 @@ def flush_outbox(log=print):
         if not f["name"].endswith(".txt"): continue
         try:
             txt = _get_bytes(f"inbox/outbox/{f['name']}").decode()[:3500]
-            for c in report_targets(): _say(c, txt)
+            if not txt.lstrip().startswith("\U0001F30D"): txt = "\U0001F30D Dreamy Earth\n" + txt
+            for c in (owner_targets() if f["name"].startswith("igstats") else channel_targets()): _say(c, txt)
             _delete(f"inbox/outbox/{f['name']}", f["sha"]); log("INBOX: outbox message sent:", f["name"])
         except Exception as e: log("INBOX outbox error:", str(e)[:120])
 
@@ -230,6 +230,6 @@ def upload_next(yt_mod, access, log=print, work="out"):
         except OSError: pass
     _delete(f"inbox/pending/{base}.mp4", sm); _delete(f"inbox/pending/{base}.json", sj)
     try:
-        for c in report_targets(): _say(c, f"\u25B6\uFE0F YouTube'ga joylandi: {title}\nhttps://youtube.com/shorts/{vid}\nNavbatda qoldi: {len(items) - 1}")
+        for c in channel_targets(): _say(c, f"\U0001F30D Dreamy Earth\n\u25B6\uFE0F YouTube'ga joylandi: {title}\nhttps://youtube.com/shorts/{vid}\nNavbatda qoldi: {len(items) - 1}")
     except Exception: pass
     return True
