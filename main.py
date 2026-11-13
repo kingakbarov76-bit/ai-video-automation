@@ -464,7 +464,7 @@ def do_brand():
             "New videos every day. Subscribe and tell us which place you'd visit!")
     kw = 'travel nature "places on earth" "real places" scenery "beautiful places" dreamworld shorts'
     res = yt.brand(access, desc, kw, "out/banner.png"); log("brand:", res); return res
-INBOX_SLOTS_T = [18, 22, 1, 4, 7]   # Tashkent hours = 8 AM, 12 PM, 3 PM, 6 PM, 9 PM US Eastern (US audience prime times)
+INBOX_SLOTS_T = [18, 21, 0, 2, 4, 7]   # Tashkent hours = 8 AM, 11 AM, 2 PM, 4 PM, 6 PM, 9 PM US Eastern (US audience prime times)
 def inbox_slot_age(now=None):
     """Minutes since the start of the current upload slot (window 90 min), else None."""
     now = now or (datetime.datetime.utcnow() + datetime.timedelta(hours=5)); best = None
@@ -482,7 +482,7 @@ def do_inbox():
     try: inbox.maybe_report(yt, _yt(), log)          # statistics to the owner through the bot every ~8 h
     except Exception as ex: log("INBOX report failed:", str(ex)[:150])
     age = inbox_slot_age()
-    if age is None: log("SKIP: not an upload slot (slots Tashkent 18, 22, 01, 04, 07)"); return
+    if age is None: log("SKIP: not an upload slot (slots Tashkent 18, 21, 00, 02, 04, 07)"); return
     try:
         if time.time() - float(open("/tmp/last_upload_ts").read()) < age * 60: log("SKIP: this slot already uploaded (local guard)"); return
     except (OSError, ValueError): pass
@@ -494,7 +494,7 @@ def do_inbox():
     access = _yt()
     mins, n24 = yt.upload_stats(access)
     if mins is not None and mins < age: log(f"SKIP: this slot already uploaded ({mins:.0f} min ago)"); return
-    if n24 >= 5: log(f"SKIP: already {n24} uploads in last 24h (quota cap 5)"); return
+    if n24 >= 6: log(f"SKIP: already {n24} uploads in last 24h (quota cap 6)"); return
     if inbox.upload_next(yt, access, log):
         try: open("/tmp/last_upload_ts", "w").write(str(time.time()))
         except OSError: pass
