@@ -51,13 +51,8 @@ def cleanup(log=print):
     r = requests.delete(f"{music.GH}/repos/{music.REPO}/git/refs/heads/{STORE}", headers=music._gh(), timeout=30)
     st["last_clean"] = time.time(); _save_state(st); log("INBOX: store branch wiped", r.status_code)
 def pending():
-    """[(base_name, sha_json, sha_mp4)] oldest first."""
-    fs = {f["name"]: f for f in _list("inbox/pending", STORE)}
-    out = []
-    for n, f in sorted(fs.items()):
-        if n.endswith(".json") and n[:-5] + ".mp4" in fs:
-            out.append((n[:-5], f["sha"], fs[n[:-5] + ".mp4"]["sha"]))
-    return out
+    """[(base_name, sha_json, None)] oldest first. Only a tiny json (Telegram file_id + caption) is stored: the video stays on Telegram's servers."""
+    return [(f["name"][:-5], f["sha"], None) for f in sorted(_list("inbox/pending", STORE), key=lambda f: f["name"]) if f["name"].endswith(".json")]
 
 # ---------- metadata ----------
 def _words(s): return [w for w in re.findall(r"[A-Za-z][A-Za-z'-]{2,}", s)]
@@ -115,14 +110,10 @@ def _handle(m, log):
         _say(chat, "Video yuboring (izohga joy nomi). /status - navbat."); return
     if v.get("file_size", 0) > MAX_BYTES:
         _say(chat, "Video 20 MB dan katta, Telegram bot uni ololmaydi. Kichikroq (siqilgan) yuboring."); return
-    fp = _api("getFile", file_id=v["file_id"]).get("result", {}).get("file_path")
-    if not fp: _say(chat, "Videoni ololmadim, qayta yuboring."); return
-    data = requests.get(f"{TG}/file/bot{_tok()}/{fp}", timeout=120).content
     base = f"{int(time.time())}_{v.get('file_unique_id', 'x')}"
     cap = (m.get("caption") or "").strip()      # empty caption -> the scene is described automatically at upload time
-    _put_store(f"inbox/pending/{base}.mp4", data, f"inbox video {base}")
-    _put_store(f"inbox/pending/{base}.json", json.dumps({"caption": cap, "added": time.time()}).encode(), f"inbox meta {base}")
-    log(f"INBOX: queued {base} ({len(data) // 1024} KB) caption={cap[:40]!r}")
+    _put_store(f"inbox/pending/{base}.json", json.dumps({"caption": cap, "added": time.time(), "file_id": v["file_id"], "size": v.get("file_size", 0)}).encode(), f"inbox meta {base}")
+    log(f"INBOX: queued {base} ({v.get('file_size', 0) // 1024} KB) caption={cap[:40]!r}")
     _say(chat, f"Qabul qilindi. Navbatda: {len(pending())} ta." + ("" if cap else " Sarlavhani o'zim topaman."))
 
 def poll_loop(log=print):
@@ -236,7 +227,12 @@ def upload_next(yt_mod, access, log=print, work="out"):
     base, sj, sm = items[0]
     meta = json.loads(_get_bytes(f"inbox/pending/{base}.json", STORE).decode())
     os.makedirs(work, exist_ok=True); path = f"{work}/inbox.mp4"
-    open(path, "wb").write(_get_bytes(f"inbox/pending/{base}.mp4", STORE))
+    if meta.get("file_id"):
+        fp = _api("getFile", file_id=meta["file_id"]).get("result", {}).get("file_path")
+        if not fp: raise RuntimeError("telegram getFile failed for " + base)
+        open(path, "wb").write(requests.get(f"{TG}/file/bot{_tok()}/{fp}", timeout=180).content)
+    else:      # legacy item queued before the file_id change: the video itself is on the store branch
+        open(path, "wb").write(_get_bytes(f"inbox/pending/{base}.mp4", STORE))
     cap = (meta.get("caption") or "").strip() or describe(path, log)
     log("INBOX caption used:", cap[:60])
     title, desc, tags = make_meta(cap)
@@ -253,7 +249,10 @@ def upload_next(yt_mod, access, log=print, work="out"):
     finally:
         try: os.remove(f"out/ig/{vid}.mp4")
         except OSError: pass
-    _delete(f"inbox/pending/{base}.mp4", sm, STORE); _delete(f"inbox/pending/{base}.json", sj, STORE)
+    _delete(f"inbox/pending/{base}.json", sj, STORE)
+    if not meta.get("file_id"):
+        for f in _list("inbox/pending", STORE):
+            if f["name"] == base + ".mp4": _delete(f"inbox/pending/{base}.mp4", f["sha"], STORE)
     try:
         for c in channel_targets(): _say(c, f"\U0001F30D Dreamy Earth\n\u25B6\uFE0F YouTube'ga joylandi: {title}\nhttps://youtube.com/shorts/{vid}\nNavbatda qoldi: {len(items) - 1}")
     except Exception: pass
