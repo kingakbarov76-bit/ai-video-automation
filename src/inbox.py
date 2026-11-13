@@ -110,11 +110,22 @@ def _handle(m, log):
         _say(chat, "Video yuboring (izohga joy nomi). /status - navbat."); return
     if v.get("file_size", 0) > MAX_BYTES:
         _say(chat, "Video 20 MB dan katta, Telegram bot uni ololmaydi. Kichikroq (siqilgan) yuboring."); return
+    dur, w, h, sz = int(v.get("duration", 0) or 0), int(v.get("width", 0) or 0), int(v.get("height", 0) or 0), int(v.get("file_size", 0) or 0)
+    if dur and dur < 3: _say(chat, "Video juda qisqa (3 soniyadan kam), qabul qilmadim."); return
+    if dur > 900: _say(chat, "Video 15 daqiqadan uzun, qabul qilmadim."); return
+    keys = [f"u:{v.get('file_unique_id', '')}", f"f:{dur}-{w}-{h}-{sz}"]      # same file re-sent -> same unique id / same fingerprint
+    seen = st.get("seen", [])
+    if any(k in seen for k in keys if not k.endswith(":")) and sz:
+        _say(chat, "Bu video avval qabul qilingan, qayta qo'shmadim."); return
+    st["seen"] = (seen + keys)[-3000:]; _save_state(st)
+    notes = []
+    if w and h and w > h: notes.append("gorizontal (Shorts bo'lmaydi)")
+    if dur > 180: notes.append("180 soniyadan uzun (Shorts bo'lmaydi)")
     base = f"{int(time.time())}_{v.get('file_unique_id', 'x')}"
     cap = (m.get("caption") or "").strip()      # empty caption -> the scene is described automatically at upload time
     _put_store(f"inbox/pending/{base}.json", json.dumps({"caption": cap, "added": time.time(), "file_id": v["file_id"], "size": v.get("file_size", 0)}).encode(), f"inbox meta {base}")
     log(f"INBOX: queued {base} ({v.get('file_size', 0) // 1024} KB) caption={cap[:40]!r}")
-    _say(chat, f"Qabul qilindi. Navbatda: {len(pending())} ta." + ("" if cap else " Sarlavhani o'zim topaman."))
+    _say(chat, f"Qabul qilindi. Navbatda: {len(pending())} ta." + ("" if cap else " Sarlavhani o'zim topaman.") + (" Eslatma: " + ", ".join(notes) if notes else ""))
 
 def poll_loop(log=print):
     if not _tok(): return
