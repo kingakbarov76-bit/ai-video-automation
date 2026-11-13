@@ -482,6 +482,8 @@ def _execute(mode="run"):
             r = tts.synth(["Number one. Hallstatt, Austria. A village on a lake."], "/tmp/ttst", log)
             log("ttstest result:", r, "peak child RSS MB:", resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss // 1024)
         elif mode == "brand": do_brand()
+        elif mode in ("run", "long") and os.environ.get("ALLOW_GENERATED") != "1":
+            log("SKIP: auto-generated videos are OFF (only user-supplied videos are uploaded). Set ALLOW_GENERATED=1 to re-enable.")
         else: main(mode)
         log("RESULT: OK")
     except BaseException as e:
