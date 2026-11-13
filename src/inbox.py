@@ -85,14 +85,11 @@ def _handle(m, log):
     if not fp: _say(chat, "Videoni ololmadim, qayta yuboring."); return
     data = requests.get(f"{TG}/file/bot{_tok()}/{fp}", timeout=120).content
     base = f"{int(time.time())}_{v.get('file_unique_id', 'x')}"
-    cap = (m.get("caption") or "").strip()
-    if not cap:       # album: only the first video has a caption -> reuse the last one
-        cap = st.get("last_caption", "")
-    else: st["last_caption"] = cap; _save_state(st)
+    cap = (m.get("caption") or "").strip()      # empty caption -> the scene is described automatically at upload time
     music._put(f"inbox/pending/{base}.mp4", data, f"inbox video {base}")
     music._put(f"inbox/pending/{base}.json", json.dumps({"caption": cap, "added": time.time()}).encode(), f"inbox meta {base}")
     log(f"INBOX: queued {base} ({len(data) // 1024} KB) caption={cap[:40]!r}")
-    _say(chat, f"Qabul qilindi. Navbatda: {len(pending())} ta." + ("" if cap else " Izoh yo'q: umumiy sarlavha ishlatiladi."))
+    _say(chat, f"Qabul qilindi. Navbatda: {len(pending())} ta." + ("" if cap else " Sarlavhani o'zim topaman."))
 
 def poll_loop(log=print):
     if not _tok(): return
@@ -112,6 +109,32 @@ def poll_loop(log=print):
         except Exception as e:
             log("INBOX poll error:", str(e)[:100]); time.sleep(10)
 
+# ---------- automatic title from the picture (Cloudflare Workers AI vision, free tier) ----------
+def describe(path, log=print):
+    """3-5 word scene description of the video (e.g. 'turquoise waterfall in green forest') or '' on any failure."""
+    import subprocess
+    acc, tok = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip()
+    if not (acc and tok): return ""
+    try:
+        d = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path],
+                                 capture_output=True, text=True).stdout.strip() or 6)
+        jpg = path + ".jpg"
+        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{d / 3:.2f}", "-i", path, "-frames:v", "1",
+                        "-vf", "scale=448:-2", "-q:v", "4", jpg], check=True)
+        img = list(open(jpg, "rb").read())
+        r = requests.post(f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/@cf/llava-hf/llava-1.5-7b-hf",
+                          headers={"Authorization": f"Bearer {tok}"}, timeout=120,
+                          json={"image": img, "max_tokens": 24,
+                                "prompt": "Describe the main scenery of this photo in 3 to 5 words, like 'turquoise waterfall in green forest'. "
+                                          "Answer with only those words, no punctuation, no sentence."})
+        txt = (r.json().get("result") or {}).get("description") or (r.json().get("result") or {}).get("response") or ""
+        txt = re.sub(r"[^A-Za-z' -]", " ", txt).strip()
+        txt = re.sub(r"^(a|an|the)\s+", "", re.sub(r"\s+", " ", txt), flags=re.I)
+        if 2 <= len(txt.split()) <= 8: return txt[:1].upper() + txt[1:]
+        log("INBOX describe: unusable answer:", txt[:60])
+    except Exception as e: log("INBOX describe failed:", str(e)[:120])
+    return ""
+
 # ---------- upload ----------
 def upload_next(yt_mod, access, log=print, work="out"):
     items = pending()
@@ -120,7 +143,9 @@ def upload_next(yt_mod, access, log=print, work="out"):
     meta = json.loads(_get_bytes(f"inbox/pending/{base}.json").decode())
     os.makedirs(work, exist_ok=True); path = f"{work}/inbox.mp4"
     open(path, "wb").write(_get_bytes(f"inbox/pending/{base}.mp4"))
-    title, desc, tags = make_meta(meta.get("caption", ""))
+    cap = (meta.get("caption") or "").strip() or describe(path, log)
+    log("INBOX caption used:", cap[:60])
+    title, desc, tags = make_meta(cap)
     vid, privacy = yt_mod.upload(access, path, title, desc, tags, synthetic=False)
     log("uploaded:", vid, "privacy:", privacy, "| title:", title, f"| inbox left: {len(items) - 1}")
     _delete(f"inbox/pending/{base}.mp4", sm); _delete(f"inbox/pending/{base}.json", sj)
