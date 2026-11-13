@@ -173,6 +173,16 @@ def upload_next(yt_mod, access, log=print, work="out"):
     path = brand(path, f"{work}/inbox_wm.mp4", log=log)
     vid, privacy = yt_mod.upload(access, path, title, desc, tags, synthetic=False)
     log("uploaded:", vid, "privacy:", privacy, "| title:", title, f"| inbox left: {len(items) - 1}")
+    try:      # same video to Instagram Reels (the file is served publicly for a few minutes, then removed)
+        from . import igpost
+        os.makedirs("out/ig", exist_ok=True); igf = f"out/ig/{vid}.mp4"; import shutil; shutil.copy(path, igf)
+        base_url = os.environ.get("RENDER_EXTERNAL_URL", "https://yt-auto-shorts.onrender.com").rstrip("/")
+        igpost.publish_reel(f"{base_url}/media/{vid}.mp4", title + "\n\n" + desc.split("Subscribe for more")[0].strip() + "\n\nFollow @dreamyearthh\n" +
+                            " ".join(re.findall(r"#\w+", desc)), log)
+    except Exception as e: log("IG failed (YouTube upload is fine):", str(e)[:200])
+    finally:
+        try: os.remove(f"out/ig/{vid}.mp4")
+        except OSError: pass
     _delete(f"inbox/pending/{base}.mp4", sm); _delete(f"inbox/pending/{base}.json", sj)
     try:
         st = _state()

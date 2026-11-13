@@ -42,6 +42,18 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         u = urllib.parse.urlparse(self.path); q = urllib.parse.parse_qs(u.query)
         if u.path == "/": return self.send("ok")
+        if u.path.startswith("/media/") and u.path.endswith(".mp4"):
+            f = os.path.join("out", "ig", os.path.basename(u.path))
+            if not os.path.exists(f): return self.send("not found", 404)
+            b = open(f, "rb").read(); self.send_response(200); self.send_header("Content-Type", "video/mp4")
+            self.send_header("Content-Length", str(len(b))); self.send_header("Accept-Ranges", "none"); self.end_headers(); self.wfile.write(b); return
+        if u.path == "/ig-auth":
+            from src import igpost
+            code = (q.get("code") or [""])[0]
+            if not code:
+                return self.send(f'<a href="{igpost.auth_link()}">Instagram: ruxsat berish uchun bosing</a>', ctype="text/html; charset=utf-8")
+            try: return self.send("Instagram ulandi, user id: " + igpost.exchange(code))
+            except Exception as e: return self.send("xato: " + str(e)[:400])
         if u.path == "/run": return self.send(start("run"))
         if u.path == "/check": return self.send(start("check"))
         if u.path == "/choose": return self.send(start("choose"))
