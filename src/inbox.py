@@ -219,9 +219,11 @@ def owner_targets():
     st = _state(); return [st["owner"]] if st.get("owner") else []
 def channel_targets():
     return [x.strip() for x in os.environ.get("TG_CHAT_IDS", "").split(",") if x.strip()]
-def maybe_report(yt_mod, access, log=print, every_h=8, force=False):
+def maybe_report(yt_mod, access, log=print, every_h=20, force=False):
+    """Once a day, at 09:00-09:59 Tashkent time."""
     st = _state()
-    if not force and time.time() - st.get("last_report", 0) < every_h * 3600: return
+    hour = (time.gmtime(time.time() + 5 * 3600)).tm_hour
+    if not force and (hour != 9 or time.time() - st.get("last_report", 0) < every_h * 3600): return
     txt = stats_text(yt_mod, access)
     for c in owner_targets(): _say(c, txt)
     st["last_report"] = time.time(); _save_state(st); log("INBOX: stats report sent")
