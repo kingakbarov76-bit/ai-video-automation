@@ -494,7 +494,7 @@ def do_inbox():
     access = _yt()
     mins, n24 = yt.upload_stats(access)
     if mins is not None and mins < age: log(f"SKIP: this slot already uploaded ({mins:.0f} min ago)"); return
-    if n24 >= 3: log(f"SKIP: already {n24} uploads in last 24h (cap 3)"); return
+    if n24 >= 6: log(f"SKIP: already {n24} uploads in last 24h (quota cap 6; the 3/day pace comes from the slots)"); return
     if inbox.upload_next(yt, access, log):
         try: open("/tmp/last_upload_ts", "w").write(str(time.time()))
         except OSError: pass
