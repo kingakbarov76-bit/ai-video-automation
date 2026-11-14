@@ -66,7 +66,10 @@ def make_meta(caption):
     scene, _, extra = cap.partition("|")
     scene = re.sub(r"\s+", " ", scene).strip(" -:.") or "Beautiful nature scenery"
     scene = scene[:1].upper() + scene[1:]
-    title = f"{scene} \U0001F33F Relaxing Nature Sounds to Calm Your Mind"
+    TITLES = ["{s} \U0001F33F Relaxing Nature Sounds to Calm Your Mind", "Calm Your Mind with {s} \U0001F343", "{s} \U0001F30D Beautiful Places on Earth",
+              "{s} \U0001F3A7 Nature Sounds for Sleep & Study", "Relax Here: {s} \U0001F304", "{s} \u2728 Peaceful Nature Escape",
+              "Just {s}. Breathe. \U0001F33F", "{s} \U0001F30E Dreamy Earth Calm", "Take a Deep Breath: {s} \U0001F343", "{s} \U0001F33F Nature Ambience to Unwind"]
+    title = TITLES[int(time.time() // 10800) % len(TITLES)].format(s=scene)      # rotates, so consecutive uploads never share one title pattern
     if len(title) > 100: title = f"{scene[:60]} \U0001F33F Relaxing Nature Sounds"
     words = [w.lower() for w in _words(scene)]
     desc = (f"{scene}. Relax with calming nature scenery and soothing sounds, perfect for sleep, study, meditation and stress relief.\n"
