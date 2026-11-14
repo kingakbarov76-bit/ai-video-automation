@@ -60,7 +60,33 @@ def clean_cap(cap):
     cap = re.sub(r"[\u200b\u200c\u200d\ufeff]", "", cap or "")
     return "\n".join(l for l in cap.splitlines() if "utezbot" not in l.lower() and "yuklab olindi" not in l.lower() and "📥" not in l).strip()
 def _words(s): return [w for w in re.findall(r"[A-Za-z][A-Za-z'-]{2,}", s)]
-def make_meta(caption):
+def ai_text(scene, recent, log=print):
+    """Cloudflare Workers AI (free) writes a unique, search-oriented title + hashtags + tags for this scene. None on any failure."""
+    acc, tok = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip()
+    if not (acc and tok): return None
+    try:
+        prompt = (f'Scene of a nature video: "{scene}". You are a YouTube Shorts SEO expert for a calm nature channel called Dreamy Earth.\n'
+                  f'Write ONE title (max 65 characters, English, catchy and calming, uses the scene words, exactly one emoji, no quotation marks) '
+                  f'whose wording and structure are completely different from these recent titles: {json.dumps(recent[-12:])}.\n'
+                  'Also give 5 hashtags people really search for (the first must be #shorts) and 12 YouTube search tags (lowercase, 1-3 words each, about nature, relaxing, scenery, travel).\n'
+                  'Reply with ONLY this JSON: {"title": "...", "hashtags": ["#shorts", "..."], "tags": ["..."]}')
+        r = requests.post(f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/@cf/meta/llama-3.1-8b-instruct",
+                          headers={"Authorization": f"Bearer {tok}"}, timeout=90,
+                          json={"messages": [{"role": "user", "content": prompt}], "max_tokens": 450, "temperature": 0.95})
+        txt = (r.json().get("result") or {}).get("response") or ""
+        d = json.loads(re.search(r"\{.*\}", txt, re.S).group(0))
+        title = re.sub(r"\s+", " ", str(d.get("title", "")).replace('"', "")).strip()
+        if not (12 <= len(title) <= 70) or title.lower() in [t.lower() for t in recent] or "utezbot" in title.lower(): return None
+        tags_h = []
+        for h in d.get("hashtags", []):
+            h = "#" + re.sub(r"[^A-Za-z0-9]", "", str(h))
+            if len(h) > 2 and h.lower() not in [x.lower() for x in tags_h]: tags_h.append(h)
+        tags_h = ["#shorts"] + [h for h in tags_h if h.lower() != "#shorts"]
+        tg = [re.sub(r"[^a-z0-9 '-]", "", str(t).lower()).strip() for t in d.get("tags", [])]
+        return {"title": title, "hashtags": tags_h[:5], "tags": [t for t in tg if 2 < len(t) < 35][:14]}
+    except Exception as e: log("INBOX ai_text failed:", str(e)[:120]); return None
+
+def make_meta(caption, ai=None):
     """Search-oriented title/description/tags from a short scene phrase (or the owner's caption: 'Title | extra')."""
     cap = (caption or "").strip()
     scene, _, extra = cap.partition("|")
@@ -71,16 +97,21 @@ def make_meta(caption):
               "Just {s}. Breathe. \U0001F33F", "{s} \U0001F30E Dreamy Earth Calm", "Take a Deep Breath: {s} \U0001F343", "{s} \U0001F33F Nature Ambience to Unwind"]
     title = TITLES[int(time.time() // 10800) % len(TITLES)].format(s=scene)      # rotates, so consecutive uploads never share one title pattern
     if len(title) > 100: title = f"{scene[:60]} \U0001F33F Relaxing Nature Sounds"
+    if ai: title = ai["title"]
     words = [w.lower() for w in _words(scene)]
     desc = (f"{scene}. Relax with calming nature scenery and soothing sounds, perfect for sleep, study, meditation and stress relief.\n"
             + (extra.strip() + "\n" if extra.strip() else "") +
-            "\n#nature #relaxing #calmnature\n\n"
+            "\n" + (" ".join(ai["hashtags"]) if ai else "#nature #relaxing #calmnature") + "\n\n"
             f"\U0001F30D Dreamy Earth shows the most beautiful places on Earth. Subscribe for a new calming nature video every day: {SUB}\n\n"
             "Watch for: relaxing nature sounds, calm nature video, nature ambience, beautiful scenery, nature sounds for sleep, "
             "peaceful nature, scenic views, nature relaxation, travel destinations, places on earth.\n\n"
             "#shorts #naturesounds #scenery #beautifulplaces #travel")
     tags = list(dict.fromkeys([scene.lower()] + words[:5] + ["relaxing nature sounds", "nature sounds", "calm nature", "nature ambience",
             "nature for sleep", "relaxing videos", "beautiful nature", "scenic nature", "nature shorts", "travel", "shorts"]))[:15]
+    if ai:
+        base = ["shorts", "nature", "relaxing nature sounds", "nature sounds", "calm nature", "scenery", "beautiful places"]
+        tags = list(dict.fromkeys([scene.lower()] + ai["tags"] + base + tags))
+        while sum(len(t) + 1 for t in tags) > 450: tags.pop()
     return title, desc, tags
 
 # ---------- Telegram polling ----------
@@ -274,10 +305,16 @@ def upload_next(yt_mod, access, log=print, work="out"):
         open(path, "wb").write(_get_bytes(f"inbox/pending/{base}.mp4", STORE))
     cap = clean_cap(meta.get("caption")) or describe(path, log)
     log("INBOX caption used:", cap[:60])
-    title, desc, tags = make_meta(cap)
+    recent = _state().get("titles", [])
+    scene = cap.partition("|")[0].strip() or "Beautiful nature scenery"
+    ai = ai_text(scene, recent, log)
+    log("INBOX title source:", "ai" if ai else "template")
+    title, desc, tags = make_meta(cap, ai)
     path = brand(path, f"{work}/inbox_wm.mp4", log=log)
     vid, privacy = yt_mod.upload(access, path, title, desc, tags, synthetic=False)
     log("uploaded:", vid, "privacy:", privacy, "| title:", title, f"| inbox left: {len(items) - 1}")
+    try: st = _state(); st["titles"] = (st.get("titles", []) + [title])[-40:]; _save_state(st)
+    except Exception as e: log("INBOX save titles failed:", str(e)[:80])
     try:      # same video to Instagram Reels (the file is served publicly for a few minutes, then removed)
         from . import igpost
         os.makedirs("out/ig", exist_ok=True); igf = f"out/ig/{vid}.mp4"; import shutil; shutil.copy(path, igf)
