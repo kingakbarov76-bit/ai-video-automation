@@ -77,7 +77,7 @@ def ai_text(scene, recent, log=print):
     if not (acc and tok): return None
     try:
         prompt = (f'Scene of a nature video: "{scene}". You are a YouTube Shorts SEO expert for a calm nature channel called Dreamy Earth.\n'
-                  f'Write ONE title (max 65 characters, English, catchy and calming, uses the scene words, exactly one emoji, no quotation marks) '
+                  f'Write ONE title (max 65 characters, English, simple everyday words that people actually type in YouTube search, calming, must contain the plain scene keywords such as foggy mountain or waterfall forest, no poetic or rare words, exactly one emoji, no quotation marks) '
                   f'whose wording and structure are completely different from these recent titles: {json.dumps(recent[-12:])}.\n'
                   'Also give 5 hashtags and 15 YouTube search tags (lowercase, 1-3 words each) that are specific to this exact scene (its landscape, water, trees, animals, weather, place type), nothing generic.\n'
                   'Reply with ONLY this JSON: {"title": "...", "hashtags": ["#shorts", "..."], "tags": ["..."]}')
