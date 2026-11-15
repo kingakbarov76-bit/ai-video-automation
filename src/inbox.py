@@ -74,7 +74,7 @@ def ai_text(scene, recent, log=print):
                           headers={"Authorization": f"Bearer {tok}"}, timeout=90,
                           json={"messages": [{"role": "user", "content": prompt}], "max_tokens": 450, "temperature": 0.95})
         txt = (r.json().get("result") or {}).get("response") or ""
-        d = json.loads(re.search(r"\{.*\}", txt, re.S).group(0))
+        d = txt if isinstance(txt, dict) else json.loads(re.search(r"\{.*\}", str(txt), re.S).group(0))      # Cloudflare may already return the JSON parsed
         title = re.sub(r"\s+", " ", str(d.get("title", "")).replace('"', "")).strip()
         if not (12 <= len(title) <= 70) or title.lower() in [t.lower() for t in recent] or "utezbot" in title.lower(): return None
         tags_h = []
