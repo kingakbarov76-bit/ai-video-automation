@@ -126,7 +126,7 @@ def make_meta(caption, ai=None):
             "nature for sleep", "relaxing videos", "beautiful nature", "scenic nature", "nature shorts", "travel", "shorts"]))[:15]
     if ai:
         tags = list(dict.fromkeys([scene.lower()] + STRONG_TAGS[:8] + ai["tags"][:10] + STRONG_TAGS[8:] + ai["tags"][10:] + ["shorts", "beautiful places"]))
-        while sum(len(t) + 1 for t in tags) > 480: tags.pop()      # YouTube allows 500 characters of tags in total
+        while sum(len(t) + 1 + (2 if ' ' in t else 0) for t in tags) > 440: tags.pop()      # YouTube allows 500 characters in total and counts the quotes around multi-word tags
     return title, desc, tags
 
 # ---------- Telegram polling ----------
@@ -326,7 +326,10 @@ def upload_next(yt_mod, access, log=print, work="out"):
     log("INBOX title source:", "ai" if ai else "template")
     title, desc, tags = make_meta(cap, ai)
     path = brand(path, f"{work}/inbox_wm.mp4", log=log)
-    vid, privacy = yt_mod.upload(access, path, title, desc, tags, synthetic=False)
+    try: vid, privacy = yt_mod.upload(access, path, title, desc, tags, synthetic=False)
+    except RuntimeError as e:
+        if "invalidTags" not in str(e) and "keywords" not in str(e): raise
+        log("INBOX invalid tags, retrying with a short tag list"); vid, privacy = yt_mod.upload(access, path, title, desc, tags[:10], synthetic=False)
     log("uploaded:", vid, "privacy:", privacy, "| title:", title, f"| inbox left: {len(items) - 1}")
     try: st = _state(); st["titles"] = (st.get("titles", []) + [title])[-40:]; _save_state(st)
     except Exception as e: log("INBOX save titles failed:", str(e)[:80])
