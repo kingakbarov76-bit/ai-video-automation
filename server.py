@@ -61,6 +61,7 @@ class H(BaseHTTPRequestHandler):
             try: return self.send("Instagram ulandi, user id: " + igpost.exchange(code))
             except Exception as e: return self.send("xato: " + str(e)[:400])
         if u.path == "/run": return self.send(start("run"))
+        if u.path == "/now": return self.send(start("now"))
         if u.path == "/check": return self.send(start("check"))
         if u.path == "/choose": return self.send(start("choose"))
         if u.path == "/analyze": return self.send(start("analyze"))

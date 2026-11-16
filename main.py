@@ -474,7 +474,7 @@ def inbox_slot_age(now=None):
         age = (now - st).total_seconds() / 60
         if age < 90 and (best is None or age < best): best = age
     return best
-def do_inbox():
+def do_inbox(force=False):
     """Auto-generated videos are OFF: upload the next video the owner sent through the Telegram bot, one per US-audience slot (max 5 per 24 h)."""
     from src import inbox
     try: inbox.flush_outbox(log)
@@ -482,9 +482,10 @@ def do_inbox():
     try: inbox.maybe_report(yt, _yt(), log)          # statistics to the owner through the bot every ~8 h
     except Exception as ex: log("INBOX report failed:", str(ex)[:150])
     age = inbox_slot_age()
+    if force: age = 0.0
     if age is None: log("SKIP: not an upload slot (slots Tashkent 18, 21, 00, 02, 04, 07)"); return
     try:
-        if time.time() - float(open("/tmp/last_upload_ts").read()) < age * 60: log("SKIP: this slot already uploaded (local guard)"); return
+        if not force and time.time() - float(open("/tmp/last_upload_ts").read()) < age * 60: log("SKIP: this slot already uploaded (local guard)"); return
     except (OSError, ValueError): pass
     if not inbox.pending():
         try: inbox.cleanup(log)
@@ -493,7 +494,7 @@ def do_inbox():
     if inbox._state().get("hold"): log("SKIP: queue is on hold until the owner confirms the videos are his own/licensed (/davom)"); return
     access = _yt()
     mins, n24 = yt.upload_stats(access)
-    if mins is not None and mins < age: log(f"SKIP: this slot already uploaded ({mins:.0f} min ago)"); return
+    if mins is not None and mins < age + (0 if force else 240): log(f"SKIP: this slot already uploaded ({mins:.0f} min ago)"); return
     if n24 >= 6: log(f"SKIP: already {n24} uploads in last 24h (quota cap 6; the 3/day pace comes from the slots)"); return
     if inbox.upload_next(yt, access, log):
         try: open("/tmp/last_upload_ts", "w").write(str(time.time()))
@@ -516,6 +517,7 @@ def _execute(mode="run"):
             r = tts.synth(["Number one. Hallstatt, Austria. A village on a lake."], "/tmp/ttst", log)
             log("ttstest result:", r, "peak child RSS MB:", resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss // 1024)
         elif mode == "brand": do_brand()
+        elif mode == "now": do_inbox(force=True)
         elif mode in ("run", "long") and os.environ.get("ALLOW_GENERATED") != "1":
             do_inbox()
         else: main(mode)
