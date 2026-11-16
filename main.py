@@ -464,7 +464,7 @@ def do_brand():
             "New videos every day. Subscribe and tell us which place you'd visit!")
     kw = 'travel nature "places on earth" "real places" scenery "beautiful places" dreamworld shorts'
     res = yt.brand(access, desc, kw, "out/banner.png"); log("brand:", res); return res
-INBOX_SLOTS_T = [21, 2, 7]   # Tashkent hours = 11 AM, 4 PM, 9 PM US Eastern (3 per day, US audience prime times)
+INBOX_SLOTS_T = [21]   # Tashkent hours = 11 AM, 4 PM, 9 PM US Eastern (3 per day, US audience prime times)
 def inbox_slot_age(now=None):
     """Minutes since the start of the current upload slot (window 90 min), else None."""
     now = now or (datetime.datetime.utcnow() + datetime.timedelta(hours=5)); best = None
