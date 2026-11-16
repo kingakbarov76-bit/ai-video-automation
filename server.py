@@ -42,6 +42,12 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         u = urllib.parse.urlparse(self.path); q = urllib.parse.parse_qs(u.query)
         if u.path == "/": return self.send("ok")
+        if u.path in ("/privacy", "/terms"):
+            t = ("Privacy Policy" if u.path == "/privacy" else "Terms of Service")
+            body = ("Dreamy Earth Uploader is a private tool used by one person (the owner of the Dreamy Earth YouTube channel) to upload his own videos to his own channel. "
+                    "It stores only the YouTube authorization token of that owner, uses it only to upload videos and read the channel's public statistics, and shares no data with anyone. "
+                    "No data of other users is collected. Contact: the channel owner via the Dreamy Earth YouTube channel.")
+            return self.send(f"<!doctype html><meta charset=utf-8><title>{t}</title><h1>{t} - Dreamy Earth</h1><p>{body}</p>", 200, "text/html; charset=utf-8")
         if u.path.startswith("/media/") and u.path.endswith(".mp4"):
             f = os.path.join("out", "ig", os.path.basename(u.path))
             if not os.path.exists(f): return self.send("not found", 404)
