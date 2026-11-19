@@ -71,31 +71,57 @@ STRONG_TAGS = ["nature sounds",              # 419k
 STRONG_HASH = ["#naturesounds", "#nature", "#shorts", "#relaxingsounds", "#sleepmusic", "#meditation", "#naturevideo", "#4knature",
                "#natureambience", "#calmnature", "#asmr", "#relaxing", "#naturelovers", "#scenery"]
 
+ANGLES = ["a curious question to the viewer", "a time of day or season (dawn, dusk, midnight, autumn, winter)", "a feeling or benefit (calm, sleep, focus, escape)",
+          "a place type or imagined location (hidden valley, secret trail, remote lake)", "a number or duration (10 minutes of..., 1 hour of...)",
+          "a short command to the viewer (Escape to..., Listen to..., Imagine...)", "what you would hear or smell there", "a bold statement about how beautiful it is"]
+_STOP = {"the", "a", "an", "of", "in", "on", "to", "for", "and", "with", "at", "this", "that", "your", "you", "is", "here"}
+def _sig(t): return {w for w in re.findall(r"[a-z]+", t.lower()) if w not in _STOP and len(w) > 2}
+def _too_similar(title, recent):
+    a = _sig(title)
+    if not a: return True
+    for r in recent[-15:]:
+        b = _sig(r)
+        if b and len(a & b) / len(a | b) >= 0.3: return True
+    return False
+def _common_words(recent, n=8):
+    c = {}
+    for r in recent[-15:]:
+        for w in _sig(r): c[w] = c.get(w, 0) + 1
+    return [w for w, k in sorted(c.items(), key=lambda x: -x[1])[:n] if k >= 2]
+
 def ai_text(scene, recent, log=print):
     """Cloudflare Workers AI (free) writes a unique, search-oriented title + hashtags + tags for this scene. None on any failure."""
     acc, tok = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip()
     if not (acc and tok): return None
-    try:
-        prompt = (f'Scene of a nature video: "{scene}". You are a YouTube Shorts SEO expert for a calm nature channel called Dreamy Earth.\n'
-                  f'Write ONE title (max 65 characters, English, simple everyday words that people actually type in YouTube search, calming, must contain the plain scene keywords such as foggy mountain or waterfall forest, no poetic or rare words, exactly one emoji, no quotation marks) '
-                  f'whose wording and structure are completely different from these recent titles: {json.dumps(recent[-12:])}.\n'
-                  'Also give 5 hashtags and 15 YouTube search tags (lowercase, 1-3 words each) that are specific to this exact scene (its landscape, water, trees, animals, weather, place type), nothing generic.\n'
-                  'Reply with ONLY this JSON: {"title": "...", "hashtags": ["#shorts", "..."], "tags": ["..."]}')
-        r = requests.post(f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/@cf/meta/llama-3.1-8b-instruct",
-                          headers={"Authorization": f"Bearer {tok}"}, timeout=90,
-                          json={"messages": [{"role": "user", "content": prompt}], "max_tokens": 700, "temperature": 0.95})
-        txt = (r.json().get("result") or {}).get("response") or ""
-        d = txt if isinstance(txt, dict) else json.loads(re.search(r"\{.*\}", str(txt), re.S).group(0))      # Cloudflare may already return the JSON parsed
-        title = re.sub(r"\s+", " ", str(d.get("title", "")).replace('"', "")).strip()
-        if not (12 <= len(title) <= 70) or title.lower() in [t.lower() for t in recent] or "utezbot" in title.lower(): return None
-        tags_h = []
-        for h in d.get("hashtags", []):
-            h = "#" + re.sub(r"[^A-Za-z0-9]", "", str(h))
-            if len(h) > 2 and h.lower() not in [x.lower() for x in tags_h]: tags_h.append(h)
-        tags_h = ["#shorts"] + [h for h in tags_h if h.lower() != "#shorts"]
-        tg = [re.sub(r"[^a-z0-9 '-]", "", str(t).lower()).strip() for t in d.get("tags", [])]
-        return {"title": title, "hashtags": tags_h[:6], "tags": [t for t in dict.fromkeys(tg) if 2 < len(t) < 35][:16]}
-    except Exception as e: log("INBOX ai_text failed:", str(e)[:120]); return None
+    import random
+    banned = _common_words(recent)
+    for attempt in range(4):
+        try:
+            angle = random.choice(ANGLES)
+            prompt = (f'Scene of a nature video: "{scene}". You are a YouTube Shorts SEO expert for a calm nature channel called Dreamy Earth.\n'
+                      f'Write ONE title (max 65 characters, English, simple everyday words people type in YouTube search, calming, exactly one emoji, no quotation marks). '
+                      f'Style for this title: {angle}. Use only ONE or TWO plain keywords from the scene (for example waterfall, forest, lake, mist, mountain, ocean, river, snow) and make the rest of the title fresh. '
+                      f'The title must be NEW: do not reuse the words or structure of these recent titles: {json.dumps(recent[-15:])}. '
+                      + (f'Avoid these overused words completely: {", ".join(banned)}. ' if banned else '') +
+                      '\nAlso give 5 hashtags and 15 YouTube search tags (lowercase, 1-3 words each) specific to this exact scene (landscape, water, trees, animals, weather, place type), nothing generic.\n'
+                      'Reply with ONLY this JSON: {"title": "...", "hashtags": ["#shorts", "..."], "tags": ["..."]}')
+            r = requests.post(f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/@cf/meta/llama-3.1-8b-instruct",
+                              headers={"Authorization": f"Bearer {tok}"}, timeout=90,
+                              json={"messages": [{"role": "user", "content": prompt}], "max_tokens": 700, "temperature": 1.0})
+            txt = (r.json().get("result") or {}).get("response") or ""
+            d = txt if isinstance(txt, dict) else json.loads(re.search(r"\{.*\}", str(txt), re.S).group(0))      # Cloudflare may already return the JSON parsed
+            title = re.sub(r"\s+", " ", str(d.get("title", "")).replace('"', "")).strip()
+            if not (12 <= len(title) <= 70) or "utezbot" in title.lower(): continue
+            if _too_similar(title, recent): log(f"INBOX title too similar, retry {attempt + 1}: {title}"); continue
+            tags_h = []
+            for h in d.get("hashtags", []):
+                h = "#" + re.sub(r"[^A-Za-z0-9]", "", str(h))
+                if len(h) > 2 and h.lower() not in [x.lower() for x in tags_h]: tags_h.append(h)
+            tags_h = ["#shorts"] + [h for h in tags_h if h.lower() != "#shorts"]
+            tg = [re.sub(r"[^a-z0-9 '-]", "", str(t).lower()).strip() for t in d.get("tags", [])]
+            return {"title": title, "hashtags": tags_h[:6], "tags": [t for t in dict.fromkeys(tg) if 2 < len(t) < 35][:16]}
+        except Exception as e: log("INBOX ai_text failed:", str(e)[:120])
+    return None
 
 def make_meta(caption, ai=None):
     """Search-oriented title/description/tags from a short scene phrase (or the owner's caption: 'Title | extra')."""
