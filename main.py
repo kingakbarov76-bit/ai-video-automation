@@ -481,6 +481,11 @@ def do_inbox(force=False):
     except Exception as ex: log("INBOX outbox failed:", str(ex)[:150])
     try: inbox.maybe_report(yt, _yt(), log)          # statistics to the owner through the bot every ~8 h
     except Exception as ex: log("INBOX report failed:", str(ex)[:150])
+    pu = os.environ.get("PAUSE_UNTIL", "").strip()      # e.g. 2026-11-24T16:00:00 (UTC): no uploads before this moment
+    if pu and not force:
+        try:
+            if datetime.datetime.utcnow() < datetime.datetime.fromisoformat(pu.rstrip("Z")): log(f"SKIP: uploads paused until {pu} UTC"); return
+        except ValueError: pass
     age = inbox_slot_age()
     if force: age = 0.0
     if age is None: log("SKIP: not an upload slot (slots Tashkent 18, 21, 00, 02, 04, 07)"); return
