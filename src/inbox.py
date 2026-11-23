@@ -74,6 +74,7 @@ STRONG_HASH = ["#naturesounds", "#nature", "#shorts", "#relaxingsounds", "#sleep
 ANGLES = ["a curious question to the viewer", "a time of day or season (dawn, dusk, midnight, autumn, winter)", "a feeling or benefit (calm, sleep, focus, escape)",
           "a place type or imagined location (hidden valley, secret trail, remote lake)", "a number or duration (10 minutes of..., 1 hour of...)",
           "a short command to the viewer (Escape to..., Listen to..., Imagine...)", "what you would hear or smell there", "a bold statement about how beautiful it is"]
+POETIC = {"whisper", "whispers", "hush", "gentle", "serene", "serenity", "tranquil", "ethereal", "enchanting", "symphony", "embrace", "timeless", "silken", "velvet", "dreamy", "lullaby", "tapestry"}
 _STOP = {"the", "a", "an", "of", "in", "on", "to", "for", "and", "with", "at", "this", "that", "your", "you", "is", "here"}
 def _sig(t): return {w for w in re.findall(r"[a-z]+", t.lower()) if w not in _STOP and len(w) > 2}
 def _too_similar(title, recent):
@@ -99,8 +100,8 @@ def ai_text(scene, recent, log=print):
         try:
             angle = random.choice(ANGLES)
             prompt = (f'Scene of a nature video: "{scene}". You are a YouTube Shorts SEO expert for a calm nature channel called Dreamy Earth.\n'
-                      f'Write ONE title (max 65 characters, English, simple everyday words people type in YouTube search, calming, exactly one emoji, no quotation marks). '
-                      f'Style for this title: {angle}. Use only ONE or TWO plain keywords from the scene (for example waterfall, forest, lake, mist, mountain, ocean, river, snow) and make the rest of the title fresh. '
+                      f'Write ONE title (max 65 characters, English, simple everyday words people type in YouTube search, calming, exactly one emoji, no quotation marks; NO poetic words such as whisper, hush, gentle, serene, tranquil, ethereal, symphony, embrace). '
+                      f'Style for this title: {angle}. Use only ONE or TWO plain keywords from the scene (if the scene text is generic, choose a plain keyword yourself, for example waterfall, forest, lake, mist, mountain, ocean, river, snow) and make the rest of the title fresh. '
                       f'The title must be NEW: do not reuse the words or structure of these recent titles: {json.dumps(recent[-15:])}. '
                       + (f'Avoid these overused words completely: {", ".join(banned)}. ' if banned else '') +
                       '\nAlso give 5 hashtags and 15 YouTube search tags (lowercase, 1-3 words each) specific to this exact scene (landscape, water, trees, animals, weather, place type), nothing generic.\n'
@@ -112,6 +113,7 @@ def ai_text(scene, recent, log=print):
             d = txt if isinstance(txt, dict) else json.loads(re.search(r"\{.*\}", str(txt), re.S).group(0))      # Cloudflare may already return the JSON parsed
             title = re.sub(r"\s+", " ", str(d.get("title", "")).replace('"', "")).strip()
             if not (12 <= len(title) <= 70) or "utezbot" in title.lower(): continue
+            if set(re.findall(r"[a-z]+", title.lower())) & POETIC: log("INBOX title too poetic, retry:", title); continue
             if _too_similar(title, recent): log(f"INBOX title too similar, retry {attempt + 1}: {title}"); continue
             tags_h = []
             for h in d.get("hashtags", []):
@@ -236,28 +238,32 @@ def poll_loop(log=print):
 
 # ---------- automatic title from the picture (Cloudflare Workers AI vision, free tier) ----------
 def describe(path, log=print):
-    """3-5 word scene description of the video (e.g. 'turquoise waterfall in green forest') or '' on any failure."""
+    """3-5 word scene description of the video (e.g. 'turquoise waterfall in green forest') or '' on any failure (3 tries on different frames)."""
     import subprocess
     acc, tok = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip()
     if not (acc and tok): return ""
+    prompts = ["Describe the main scenery of this photo in 3 to 5 words, like 'turquoise waterfall in green forest'. Answer with only those words, no punctuation, no sentence.",
+               "What landscape is this? Answer in 2 to 5 words, for example 'snowy mountain lake' or 'misty pine forest'.",
+               "Name the nature scene in this picture in a few words (forest, waterfall, lake, mountain, ocean, river, field, snow, sunset)."]
     try:
         d = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path],
                                  capture_output=True, text=True).stdout.strip() or 6)
-        jpg = path + ".jpg"
-        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{d / 3:.2f}", "-i", path, "-frames:v", "1",
-                        "-vf", "scale=448:-2", "-q:v", "4", jpg], check=True)
-        img = list(open(jpg, "rb").read())
-        r = requests.post(f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/@cf/llava-hf/llava-1.5-7b-hf",
-                          headers={"Authorization": f"Bearer {tok}"}, timeout=120,
-                          json={"image": img, "max_tokens": 24,
-                                "prompt": "Describe the main scenery of this photo in 3 to 5 words, like 'turquoise waterfall in green forest'. "
-                                          "Answer with only those words, no punctuation, no sentence."})
-        txt = (r.json().get("result") or {}).get("description") or (r.json().get("result") or {}).get("response") or ""
-        txt = re.sub(r"[^A-Za-z' -]", " ", txt).strip()
-        txt = re.sub(r"^(a|an|the)\s+", "", re.sub(r"\s+", " ", txt), flags=re.I)
-        if 2 <= len(txt.split()) <= 8: return txt[:1].upper() + txt[1:]
-        log("INBOX describe: unusable answer:", txt[:60])
-    except Exception as e: log("INBOX describe failed:", str(e)[:120])
+    except Exception: d = 6.0
+    for i, (frac, pr) in enumerate(zip((0.33, 0.6, 0.15), prompts)):
+        try:
+            jpg = path + f".{i}.jpg"
+            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{d * frac:.2f}", "-i", path, "-frames:v", "1",
+                            "-vf", "scale=448:-2", "-q:v", "4", jpg], check=True)
+            img = list(open(jpg, "rb").read())
+            r = requests.post(f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/@cf/llava-hf/llava-1.5-7b-hf",
+                              headers={"Authorization": f"Bearer {tok}"}, timeout=120, json={"image": img, "max_tokens": 24, "prompt": pr})
+            res = r.json().get("result") or {}
+            txt = res.get("description") or res.get("response") or ""
+            txt = re.sub(r"[^A-Za-z' -]", " ", txt).strip()
+            txt = re.sub(r"^(a|an|the)\s+", "", re.sub(r"\s+", " ", txt), flags=re.I)
+            if 1 <= len(txt.split()) <= 8 and len(txt) > 3: return txt[:1].upper() + txt[1:]
+            log(f"INBOX describe try {i + 1}: unusable answer:", txt[:60])
+        except Exception as e: log(f"INBOX describe try {i + 1} failed:", str(e)[:120])
     return ""
 
 # ---------- channel-name watermark ----------
