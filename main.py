@@ -524,7 +524,7 @@ def _inbox_channel(inbox, st, ch, force):
     if st.get(C["hold"]): log(f"SKIP[{ch}]: {C['name']} is stopped (/davom)"); return
     access = _yt() if ch == 1 else _yt2()
     mins, n24 = yt.upload_stats(access)
-    if mins is not None and mins < age + (0 if force else 240): log(f"SKIP[{ch}]: this slot already uploaded ({mins:.0f} min ago)"); return
+    if mins is not None and mins < age + (0 if force else 90): log(f"SKIP[{ch}]: this slot already uploaded ({mins:.0f} min ago)"); return
     other = 0
     if ch == 2: other = yt.upload_stats(_yt())[1] or 0
     elif inbox.ch_enabled(2):
