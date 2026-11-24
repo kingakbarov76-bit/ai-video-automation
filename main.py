@@ -465,10 +465,10 @@ def do_brand():
     kw = 'travel nature "places on earth" "real places" scenery "beautiful places" dreamworld shorts'
     res = yt.brand(access, desc, kw, "out/banner.png"); log("brand:", res); return res
 INBOX_SLOTS_T = [7, 19]   # Tashkent hours = 11 AM, 4 PM, 9 PM US Eastern (3 per day, US audience prime times)
-def inbox_slot_age(now=None):
+def inbox_slot_age(now=None, slots=None):
     """Minutes since the start of the current upload slot (window 90 min), else None."""
     now = now or (datetime.datetime.utcnow() + datetime.timedelta(hours=5)); best = None
-    for h in INBOX_SLOTS_T:
+    for h in (slots or INBOX_SLOTS_T):
         st = now.replace(hour=h, minute=0, second=0, microsecond=0)
         if st > now: st -= datetime.timedelta(days=1)
         age = (now - st).total_seconds() / 60
@@ -486,9 +486,11 @@ def do_inbox(force=False):
         try:
             if datetime.datetime.utcnow() < datetime.datetime.fromisoformat(pu.rstrip("Z")): log(f"SKIP: uploads paused until {pu} UTC"); return
         except ValueError: pass
-    age = inbox_slot_age()
+    try: _slots = [int(x) for x in (inbox._state().get("slots") or [])] or None      # set from the Telegram bot (/soat, /soni)
+    except Exception: _slots = None
+    age = inbox_slot_age(slots=_slots)
     if force: age = 0.0
-    if age is None: log("SKIP: not an upload slot (slots Tashkent 18, 21, 00, 02, 04, 07)"); return
+    if age is None: log("SKIP: not an upload slot (slots Tashkent %s)" % (_slots or INBOX_SLOTS_T)); return
     try:
         if not force and time.time() - float(open("/tmp/last_upload_ts").read()) < age * 60: log("SKIP: this slot already uploaded (local guard)"); return
     except (OSError, ValueError): pass

@@ -184,12 +184,37 @@ def _handle(m, log):
             for c in (owner_targets() or [chat]): _say(c, stats_text(_y, _m._yt()))
         except Exception as e: _say(chat, "Statistikani olib bo'lmadi: " + str(e)[:100])
         return
-    if txt.startswith("/davom"):
-        st["hold"] = False; _save_state(st); _say(chat, "Tasdiqlandi: videolar sizniki yoki ishlatishga ruxsati bor. Yuklash davom etadi."); return
-    if txt.startswith("/toxta"):
-        st["hold"] = True; _save_state(st); _say(chat, "Yuklash to'xtatildi. Davom ettirish: /davom"); return
-    if txt.startswith("/status") or txt.startswith("/start"):
-        _say(chat, f"Navbatda: {len(pending())} ta video." + (" (To'xtatilgan: /davom)" if st.get("hold") else "")); return
+    cmd = txt.split()[0].split("@")[0].lower() if txt.startswith("/") else ""
+    args = txt.split()[1:]
+    if cmd == "/davom":
+        st["hold"] = False; _save_state(st); _say(chat, "▶️ Yuklash yoqildi, navbat bo'yicha davom etadi. Dreamy Earth"); return
+    if cmd == "/toxta":
+        st["hold"] = True; _save_state(st); _say(chat, "⏸ Yuklash to'xtatildi. Yoqish: /davom. Dreamy Earth"); return
+    if cmd == "/soat":
+        try:
+            hs = sorted({int(a) for a in args})
+            assert 1 <= len(hs) <= 4 and all(0 <= h <= 23 for h in hs)
+            for i, h in enumerate(hs):      # slots at least 5 h apart (also across midnight)
+                assert (hs[(i + 1) % len(hs)] - h) % 24 >= 5 or len(hs) == 1
+        except Exception:
+            _say(chat, "Soatlarni Toshkent vaqti bilan yozing, 1–4 ta, kamida 5 soat oralig'ida. Masalan: /soat 7 19"); return
+        st["slots"] = hs; _save_state(st)
+        _say(chat, "🕒 Yuklash soatlari (Toshkent): " + ", ".join(f"{h:02d}:00" for h in hs) + ". Dreamy Earth"); return
+    if cmd == "/soni":
+        try:
+            n = int(args[0]); assert 1 <= n <= 4
+        except Exception:
+            _say(chat, "Kuniga nechta? 1 dan 4 gacha. Masalan: /soni 2"); return
+        hs = sorted({(7 + i * 24 // n) % 24 for i in range(n)})
+        st["slots"] = hs; _save_state(st)
+        _say(chat, f"🔢 Kuniga {n} ta video. Soatlar (Toshkent): " + ", ".join(f"{h:02d}:00" for h in hs) + ". Dreamy Earth"); return
+    if cmd in ("/status", "/start", "/holat"):
+        hs = st.get("slots") or [7, 19]
+        _say(chat, f"📊 Navbatda: {len(pending())} ta video\n" + ("⏸ Holat: to'xtatilgan (/davom)\n" if st.get("hold") else "▶️ Holat: yoqilgan\n")
+             + f"🕒 Kuniga {len(hs)} ta: " + ", ".join(f"{h:02d}:00" for h in hs) + " (Toshkent)\nDreamy Earth"); return
+    if cmd in ("/yordam", "/help"):
+        _say(chat, "Buyruqlar:\n/status - holat va navbat\n/toxta - yuklashni to'xtatish\n/davom - yoqish\n/soni 2 - kuniga nechta video (1-4)\n"
+                   "/soat 7 19 - aniq soatlar (Toshkent vaqti)\n/stats - statistika\nVideoni shunchaki yuboring. Dreamy Earth"); return
     v = m.get("video") or (m.get("document") if str((m.get("document") or {}).get("mime_type", "")).startswith("video/") else None)
     if not v:
         _say(chat, "Video yuboring (izohga joy nomi). /status - navbat."); return
