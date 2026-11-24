@@ -7,7 +7,7 @@ TG = (os.environ.get("TG_API_BASE") or "https://api.telegram.org").rstrip("/")  
 MAX_BYTES = 20 * 1048576          # Telegram Bot API download limit
 SUB = "https://www.youtube.com/@dreamyearthh?sub_confirmation=1"
 CH = {1: {"name": "Dreamy Earth", "handle": "@dreamyearthh", "env": "YT_REFRESH_TOKEN", "slots": [7, 19], "tkey": "titles", "hold": "hold", "sk": "slots", "log": "uploaded:"},
-      2: {"name": "Wild Horizon", "handle": "@WildHorizonW", "env": "YT_REFRESH_TOKEN_2", "slots": [22, 3], "tkey": "titles2", "hold": "hold2", "sk": "slots2", "log": "uploaded2:"}}
+      2: {"name": "Natural Wonders Now", "handle": "@WildHorizonW", "env": "YT_REFRESH_TOKEN_2", "slots": [22, 3], "tkey": "titles2", "hold": "hold2", "sk": "slots2", "log": "uploaded2:"}}
 def sub_url(ch=1): return f"https://www.youtube.com/{CH[ch]['handle']}?sub_confirmation=1"
 def ch_enabled(ch): return ch == 1 or bool(os.environ.get(CH[ch]["env"], "").strip())
 BASE_TAGS = ["shorts", "nature", "travel", "beautiful places", "places on earth", "relaxing", "calm nature", "scenery"]
@@ -196,7 +196,7 @@ def _handle(m, log):
         _save_state(st); _say(chat, ("⏸ To'xtatildi: " if off else "▶️ Yoqildi: ") + ", ".join(CH[c]["name"] for c in targets) + (". Yoqish: /davom" if off else "") + ". Dreamy Earth"); return
     if cmd == "/kanal":
         try: n = int(args[0]); assert n in chs
-        except Exception: _say(chat, "Qaysi kanalga yuboramiz? /kanal 1 (Dreamy Earth)" + (" yoki /kanal 2 (Wild Horizon)" if 2 in chs else " (ikkinchi kanal hali ulanmagan)")); return
+        except Exception: _say(chat, "Qaysi kanalga yuboramiz? /kanal 1 (Dreamy Earth)" + (" yoki /kanal 2 (Natural Wonders Now)" if 2 in chs else " (ikkinchi kanal hali ulanmagan)")); return
         st["target"] = n; _save_state(st); _say(chat, f"📌 Endi yuborgan videolaringiz {CH[n]['name']} kanaliga ketadi. Dreamy Earth"); return
     if cmd == "/soat":
         c = cn or 1
