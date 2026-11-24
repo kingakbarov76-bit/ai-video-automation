@@ -454,16 +454,27 @@ def main(mode):
         except Exception as ex: log("playlist add failed:", str(ex)[:120])
     save_record(vid, data)
 
+BRAND = {1: {"banner": "assets/brand/dreamy_banner.png",
+             "desc": ("Calm nature videos from around the world. \U0001F30D\n"
+                      "Relax with misty forests, waterfalls, mountains and peaceful landscapes: perfect for sleep, study, meditation and stress relief.\n"
+                      "New videos every day. Subscribe for your daily dose of calm.\n"
+                      "\U0001F4F8 Instagram: @dreamyearthh\n"
+                      "Footage: royalty-free stock video (Pexels, Pixabay), edited by us."),
+             "kw": 'nature "nature sounds" "relaxing nature" scenery "beautiful places" "calm nature" "sleep music" meditation shorts'},
+         2: {"banner": "assets/brand/nwn_banner.png",
+             "desc": ("Breathtaking nature, every day. \U0001F33F\n"
+                      "Mountains, forests, oceans, wildlife and skies: short, soothing nature videos to relax, unwind and escape.\n"
+                      "New videos daily. Subscribe and see the world's natural wonders now.\n"
+                      "Footage: royalty-free stock video (Pexels, Pixabay), edited by us."),
+             "kw": 'nature "natural wonders" "nature videos" "nature sounds" scenery wildlife mountains forest ocean "relaxing nature" shorts'}}
 def do_brand():
-    from src import art
-    access = _yt(); os.makedirs("out", exist_ok=True); art.banner("out/banner.png")
-    desc = ("Dreamy Earth: real places on Earth that look unreal, in short videos.\n"
-            "Every real-place video names the place and shares a quick fact. Footage is licensed stock video (Pexels, Pixabay), "
-            "credited in each description and edited by us. Music is original.\n"
-            "Dreamworld is our AI art series of imaginary places: every episode is clearly labeled AI-generated.\n"
-            "New videos every day. Subscribe and tell us which place you'd visit!")
-    kw = 'travel nature "places on earth" "real places" scenery "beautiful places" dreamworld shorts'
-    res = yt.brand(access, desc, kw, "out/banner.png"); log("brand:", res); return res
+    out = []
+    for ch in (1, 2):
+        if ch == 2 and not os.environ.get("YT_REFRESH_TOKEN_2"): continue
+        try:
+            res = yt.brand(_yt() if ch == 1 else _yt2(), BRAND[ch]["desc"], BRAND[ch]["kw"], BRAND[ch]["banner"]); log(f"brand[{ch}]:", res); out.append(res)
+        except Exception as e: log(f"brand[{ch}] failed:", str(e)[:200])
+    return "; ".join(out)
 INBOX_SLOTS_T = [7, 19]   # Tashkent hours = 11 AM, 4 PM, 9 PM US Eastern (3 per day, US audience prime times)
 def inbox_slot_age(now=None, slots=None):
     """Minutes since the start of the current upload slot (window 90 min), else None."""
