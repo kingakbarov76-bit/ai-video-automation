@@ -66,6 +66,52 @@ def pending(ch=None):
     done = _done_names()
     return [x for x in r if (x[0].endswith(f"_c{ch}") or not (x[0].endswith("_c1") or x[0].endswith("_c2"))) and f"{x[0]}.c{ch}" not in done]
 
+def _mark_done(base, ch, sj, info, log=print):
+    """This channel has published (or skipped) the video. The queue entry disappears once every enabled channel is done with it."""
+    if base.endswith("_c1") or base.endswith("_c2"): _delete(f"inbox/pending/{base}.json", sj, STORE); return      # reserved for one channel
+    try:
+        _put_store(f"inbox/done/{base}.c{ch}", json.dumps(dict(info, ts=time.time())).encode(), f"inbox done {base} ch{ch}")
+        names = _done_names(); need = [c for c in (1, 2) if ch_enabled(c)]
+        if all(f"{base}.c{c}" in names for c in need):
+            _delete(f"inbox/pending/{base}.json", sj, STORE)
+            for c in need: _delete(f"inbox/done/{base}.c{c}", names[f"{base}.c{c}"], STORE)
+    except Exception as e: log("INBOX done marker failed:", str(e)[:120])
+def _ch1_copy_ok(access1, vid):
+    """Is the copy on channel 1 still a healthy public video (not removed, rejected, claimed away or made private)?"""
+    try:
+        r = requests.get("https://www.googleapis.com/youtube/v3/videos", headers={"Authorization": f"Bearer {access1}"}, params={"part": "status", "id": vid}, timeout=30)
+        it = (r.json().get("items") or [])
+        if not it: return False, "video removed from channel 1"
+        stt = it[0].get("status", {})
+        if stt.get("rejectionReason"): return False, "rejected: " + stt["rejectionReason"]
+        if stt.get("uploadStatus") not in ("processed", "uploaded"): return False, "status " + str(stt.get("uploadStatus"))
+        if stt.get("privacyStatus") != "public": return False, "not public on channel 1"
+        return True, ""
+    except Exception as e: return True, ""      # a check failure must not block forever
+def eligible2(items, access1, log=print):
+    """Channel 2 runs behind channel 1 (default 10 days) so a problem on channel 1 (copyright, removal) never reaches channel 2."""
+    st = _state(); lag = float(st.get("lag_days", 10)) * 86400; skip = set(st.get("skip_vids", []))
+    names = _done_names(); out = []
+    for it in items:
+        base = it[0]
+        if base.endswith("_c2"): out.append(it)
+        else:
+            if f"{base}.c1" not in names: break      # channel 1 has not published it yet (older videos go first, so the rest is not ready either)
+            try: m = json.loads(_get_bytes(f"inbox/done/{base}.c1", STORE).decode())
+            except Exception: m = {}
+            vid = m.get("vid")
+            if time.time() - float(m.get("ts", 0)) < lag: break
+            ok, why = (False, "skipped by owner") if vid in skip else (_ch1_copy_ok(access1, vid) if (vid and access1) else (True, ""))
+            if not ok:
+                log(f"INBOX ch2 skips {base} ({vid}): {why}"); _mark_done(base, 2, it[1], {"skipped": why}, log)
+                try:
+                    for c in channel_targets(): _say(c, f"⚠️ Natural Wonders Now: video {vid} qo'yilmadi ({why}). Dreamy Earth")
+                except Exception: pass
+                continue
+            out.append(it)
+        if len(out) >= 4: break
+    return out
+
 # ---------- metadata ----------
 def clean_cap(cap):
     """Drop zero-width chars and downloader-bot signature lines (e.g. '@utezbot orqali yuklab olindi')."""
@@ -205,6 +251,14 @@ def _handle(m, log):
         except Exception: _say(chat, "/kanal 0 - ikkala kanalga ham (odatiy)\n/kanal 1 - faqat Dreamy Earth\n" + ("/kanal 2 - faqat Natural Wonders Now" if 2 in chs else "(ikkinchi kanal hali ulanmagan)")); return
         st["target"] = n; _save_state(st)
         _say(chat, "📌 Endi yuborgan videolaringiz: " + ("ikkala kanalga ham chiqadi" if n == 0 else f"faqat {CH[n]['name']} kanaliga") + ". Dreamy Earth"); return
+    if cmd == "/kechikish":
+        try: d = float(args[0]); assert 0 <= d <= 60
+        except Exception: _say(chat, f"Natural Wonders Now Dreamy Earth dan necha kun orqada bo'lsin? Hozir: {st.get('lag_days', 10)} kun. Masalan: /kechikish 10 (0 = kechikishsiz)"); return
+        st["lag_days"] = d; _save_state(st); _say(chat, f"⏳ Natural Wonders Now videoni Dreamy Earth dan {d:g} kun keyin qo'yadi. Dreamy Earth"); return
+    if cmd == "/rad":
+        if not args: _say(chat, "Qaysi videoni 2-kanalga qo'ymaslik kerak? /rad <YouTube video ID> (Dreamy Earth dagi video havolasidagi ID)"); return
+        vid = args[0].strip().split("/")[-1].split("?")[0]; st["skip_vids"] = (st.get("skip_vids", []) + [vid])[-200:]; _save_state(st)
+        _say(chat, f"🚫 {vid} Natural Wonders Now ga qo'yilmaydi. Dreamy Earth"); return
     if cmd == "/soat":
         c = cn or 1
         try:
@@ -223,11 +277,11 @@ def _handle(m, log):
     if cmd in ("/status", "/start", "/holat"):
         tg = int(st.get("target", 0)); tg = tg if (tg == 0 or tg in chs) else 0
         lines = [f"📊 Navbatdagi videolar: {len(pending())} ta (har bir kanal hammasini o'zi boshidan oladi)"]
-        lines += [f"{CH[c]['name']}: navbatda {len(pending(c))} ta | " + ("⏸ to'xtatilgan" if st.get(CH[c]["hold"]) else "▶️ yoqilgan") + f" | kuniga {len(_slots(c))} ta: {_hs(_slots(c))}" for c in chs]
+        lines += [f"{CH[c]['name']}: navbatda {len(pending(c))} ta | " + ("⏸ to'xtatilgan" if st.get(CH[c]["hold"]) else "▶️ yoqilgan") + f" | kuniga {len(_slots(c))} ta: {_hs(_slots(c))}" + (f" | {st.get('lag_days', 10):g} kun kechikish bilan" if c == 2 else "") for c in chs]
         _say(chat, "\n".join(lines) + "\n📌 Yangi videolar: " + ("ikkala kanalga ham" if tg == 0 else CH[tg]["name"]) + " (/kanal)\nVaqt: Toshkent. Dreamy Earth"); return
     if cmd in ("/yordam", "/help"):
         _say(chat, "Buyruqlar:\n/status - holat va navbat\n/kanal 0 - ikkala kanalga ham (odatiy), /kanal 1 yoki 2 - faqat shu kanal uchun\n/toxta, /davom - hammasini to'xtatish/yoqish (/toxta2 - faqat 2-kanal)\n"
-                   "/soni1 2 - 1-kanalga kuniga nechta (1-4), /soni2 1 - 2-kanal\n/soat1 7 19 - aniq soatlar (Toshkent vaqti), /soat2 22 3\n/stats - statistika\nVideoni shunchaki yuboring. Dreamy Earth"); return
+                   "/soni1 2 - 1-kanalga kuniga nechta (1-4), /soni2 1 - 2-kanal\n/soat1 7 19 - aniq soatlar (Toshkent vaqti), /soat2 22 3\n/kechikish 10 - 2-kanal 1-kanaldan necha kun orqada\n/rad ID - videoni 2-kanalga qo\'ymaslik\n/stats - statistika\nVideoni shunchaki yuboring. Dreamy Earth"); return
     if cmd == "/stats":
         try:
             from src import yt as _y
@@ -374,9 +428,10 @@ def flush_outbox(log=print):
         except Exception as e: log("INBOX outbox error:", str(e)[:120])
 
 # ---------- upload ----------
-def upload_next(yt_mod, access, log=print, work="out", ch=1):
+def upload_next(yt_mod, access, log=print, work="out", ch=1, access1=None):
     items = pending(ch)
-    if not items: log("INBOX: empty, nothing to upload"); return False
+    if ch == 2: items = eligible2(items, access1, log)
+    if not items: log(f"INBOX[{ch}]: nothing ready to upload"); return False
     os.makedirs(work, exist_ok=True); path = f"{work}/inbox.mp4"
     fp = None
     for k, (base, sj, sm) in enumerate(items[:4]):      # a video Telegram refuses must not block the ones behind it
@@ -423,15 +478,7 @@ def upload_next(yt_mod, access, log=print, work="out", ch=1):
     finally:
         try: os.remove(f"out/ig/{vid}.mp4")
         except OSError: pass
-    if base.endswith("_c1") or base.endswith("_c2"): _delete(f"inbox/pending/{base}.json", sj, STORE)      # reserved for this channel only
-    else:
-        try:
-            _put_store(f"inbox/done/{base}.c{ch}", b"1", f"inbox done {base} ch{ch}")
-            names = _done_names(); need = [c for c in (1, 2) if ch_enabled(c)]
-            if all(f"{base}.c{c}" in names for c in need):      # every channel has published it: remove it from the queue
-                _delete(f"inbox/pending/{base}.json", sj, STORE)
-                for c in need: _delete(f"inbox/done/{base}.c{c}", names[f"{base}.c{c}"], STORE)
-        except Exception as e: log("INBOX done marker failed:", str(e)[:120])
+    _mark_done(base, ch, sj, {"vid": vid}, log)
     if not meta.get("file_id"):
         for f in _list("inbox/pending", STORE):
             if f["name"] == base + ".mp4": _delete(f"inbox/pending/{base}.mp4", f["sha"], STORE)

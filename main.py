@@ -531,7 +531,7 @@ def _inbox_channel(inbox, st, ch, force):
         try: other = yt.upload_stats(_yt2())[1] or 0
         except Exception: other = 0
     if (n24 or 0) + other >= 6: log(f"SKIP[{ch}]: {(n24 or 0) + other} uploads in last 24h across both channels (YouTube quota allows ~6)"); return
-    if inbox.upload_next(yt, access, log, ch=ch):
+    if inbox.upload_next(yt, access, log, ch=ch, access1=(_yt() if ch == 2 else None)):
         try: open(guard, "w").write(str(time.time()))
         except OSError: pass
 import threading
