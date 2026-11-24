@@ -6,6 +6,10 @@ from . import music
 TG = (os.environ.get("TG_API_BASE") or "https://api.telegram.org").rstrip("/")   # optional proxy (e.g. a Cloudflare Worker) if Telegram throttles this host
 MAX_BYTES = 20 * 1048576          # Telegram Bot API download limit
 SUB = "https://www.youtube.com/@dreamyearthh?sub_confirmation=1"
+CH = {1: {"name": "Dreamy Earth", "handle": "@dreamyearthh", "env": "YT_REFRESH_TOKEN", "slots": [7, 19], "tkey": "titles", "hold": "hold", "sk": "slots", "log": "uploaded:"},
+      2: {"name": "Wild Horizon", "handle": "@WildHorizonW", "env": "YT_REFRESH_TOKEN_2", "slots": [22, 3], "tkey": "titles2", "hold": "hold2", "sk": "slots2", "log": "uploaded2:"}}
+def sub_url(ch=1): return f"https://www.youtube.com/{CH[ch]['handle']}?sub_confirmation=1"
+def ch_enabled(ch): return ch == 1 or bool(os.environ.get(CH[ch]["env"], "").strip())
 BASE_TAGS = ["shorts", "nature", "travel", "beautiful places", "places on earth", "relaxing", "calm nature", "scenery"]
 
 
@@ -50,9 +54,11 @@ def cleanup(log=print):
     if time.time() - st.get("last_clean", 0) < 20 * 3600 or pending(): return
     r = requests.delete(f"{music.GH}/repos/{music.REPO}/git/refs/heads/{STORE}", headers=music._gh(), timeout=30)
     st["last_clean"] = time.time(); _save_state(st); log("INBOX: store branch wiped", r.status_code)
-def pending():
-    """[(base_name, sha_json, None)] oldest first. Only a tiny json (Telegram file_id + caption) is stored: the video stays on Telegram's servers."""
-    return [(f["name"][:-5], f["sha"], None) for f in sorted(_list("inbox/pending", STORE), key=lambda f: f["name"]) if f["name"].endswith(".json")]
+def pending(ch=None):
+    """[(base_name, sha_json, None)] oldest first. Only a tiny json (Telegram file_id + caption) is stored: the video stays on Telegram's servers.
+    Videos for the second channel carry the suffix _c2 in their name; ch=None returns everything."""
+    r = [(f["name"][:-5], f["sha"], None) for f in sorted(_list("inbox/pending", STORE), key=lambda f: f["name"]) if f["name"].endswith(".json")]
+    return r if ch is None else [x for x in r if x[0].endswith("_c2") == (ch == 2)]
 
 # ---------- metadata ----------
 def clean_cap(cap):
@@ -90,7 +96,7 @@ def _common_words(recent, n=8):
         for w in _sig(r): c[w] = c.get(w, 0) + 1
     return [w for w, k in sorted(c.items(), key=lambda x: -x[1])[:n] if k >= 2]
 
-def ai_text(scene, recent, log=print):
+def ai_text(scene, recent, log=print, chname="Dreamy Earth"):
     """Cloudflare Workers AI (free) writes a unique, search-oriented title + hashtags + tags for this scene. None on any failure."""
     acc, tok = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip()
     if not (acc and tok): return None
@@ -99,7 +105,7 @@ def ai_text(scene, recent, log=print):
     for attempt in range(4):
         try:
             angle = random.choice(ANGLES)
-            prompt = (f'Scene of a nature video: "{scene}". You are a YouTube Shorts SEO expert for a calm nature channel called Dreamy Earth.\n'
+            prompt = (f'Scene of a nature video: "{scene}". You are a YouTube Shorts SEO expert for a calm nature channel called {chname}.\n'
                       f'Write ONE title (max 65 characters, English, simple everyday words people type in YouTube search, calming, exactly one emoji, no quotation marks; NO poetic words such as whisper, hush, gentle, serene, tranquil, ethereal, symphony, embrace). '
                       f'Style for this title: {angle}. Use only ONE or TWO plain keywords from the scene (if the scene text is generic, choose a plain keyword yourself, for example waterfall, forest, lake, mist, mountain, ocean, river, snow) and make the rest of the title fresh. '
                       f'The title must be NEW: do not reuse the words or structure of these recent titles: {json.dumps(recent[-15:])}. '
@@ -125,7 +131,7 @@ def ai_text(scene, recent, log=print):
         except Exception as e: log("INBOX ai_text failed:", str(e)[:120])
     return None
 
-def make_meta(caption, ai=None):
+def make_meta(caption, ai=None, ch=1):
     """Search-oriented title/description/tags from a short scene phrase (or the owner's caption: 'Title | extra')."""
     cap = (caption or "").strip()
     scene, _, extra = cap.partition("|")
@@ -137,11 +143,12 @@ def make_meta(caption, ai=None):
     title = TITLES[int(time.time() // 10800) % len(TITLES)].format(s=scene)      # rotates, so consecutive uploads never share one title pattern
     if len(title) > 100: title = f"{scene[:60]} \U0001F33F Relaxing Nature Sounds"
     if ai: title = ai["title"]
+    title = title.replace("Dreamy Earth", CH[ch]["name"])
     words = [w.lower() for w in _words(scene)]
     desc = (f"{scene}. Relax with calming nature scenery and soothing sounds, perfect for sleep, study, meditation and stress relief.\n"
             + (extra.strip() + "\n" if extra.strip() else "") +
             "\n" + (" ".join(ai["hashtags"]) if ai else "#nature #relaxing #calmnature") + "\n\n"
-            f"\U0001F30D Dreamy Earth shows the most beautiful places on Earth. Subscribe for a new calming nature video every day: {SUB}\n\n"
+            f"\U0001F30D {CH[ch]['name']} shows the most beautiful places on Earth. Subscribe for new calming nature videos: {sub_url(ch)}\n\n"
             "Watch for: relaxing nature sounds, calm nature video, nature ambience, beautiful scenery, nature sounds for sleep, "
             "peaceful nature, scenic views, nature relaxation, travel destinations, places on earth.\n\n"
             "@@TAIL@@")
@@ -177,44 +184,49 @@ def _handle(m, log):
             return
         _say(chat, "Boshlash uchun /start yozing."); return
     if uid != owner: _say(chat, "Bu bot shaxsiy."); return
-    if txt.startswith("/stats"):
+    mc = re.match(r"^/(\w+?)([12])?(?:@\w+)?(?:\s|$)", txt) if txt.startswith("/") else None
+    cmd = ("/" + mc.group(1).lower()) if mc else ""; cn = int(mc.group(2)) if (mc and mc.group(2)) else None
+    args = txt.split()[1:]
+    chs = [c for c in (1, 2) if ch_enabled(c)]
+    def _slots(c): return st.get(CH[c]["sk"]) or CH[c]["slots"]
+    def _hs(hs): return ", ".join(f"{h:02d}:00" for h in hs)
+    if cmd in ("/davom", "/toxta"):
+        targets = [cn] if cn else chs; off = cmd == "/toxta"
+        for c in targets: st[CH[c]["hold"]] = off
+        _save_state(st); _say(chat, ("⏸ To'xtatildi: " if off else "▶️ Yoqildi: ") + ", ".join(CH[c]["name"] for c in targets) + (". Yoqish: /davom" if off else "") + ". Dreamy Earth"); return
+    if cmd == "/kanal":
+        try: n = int(args[0]); assert n in chs
+        except Exception: _say(chat, "Qaysi kanalga yuboramiz? /kanal 1 (Dreamy Earth)" + (" yoki /kanal 2 (Wild Horizon)" if 2 in chs else " (ikkinchi kanal hali ulanmagan)")); return
+        st["target"] = n; _save_state(st); _say(chat, f"📌 Endi yuborgan videolaringiz {CH[n]['name']} kanaliga ketadi. Dreamy Earth"); return
+    if cmd == "/soat":
+        c = cn or 1
+        try:
+            hs = sorted({int(a_) for a_ in args}); assert 1 <= len(hs) <= 4 and all(0 <= h <= 23 for h in hs)
+            for i, h in enumerate(hs): assert (hs[(i + 1) % len(hs)] - h) % 24 >= 5 or len(hs) == 1      # slots at least 5 h apart (also across midnight)
+        except Exception:
+            _say(chat, "Soatlarni Toshkent vaqti bilan yozing, 1–4 ta, kamida 5 soat oralig'ida. Masalan: /soat1 7 19 (1-kanal) yoki /soat2 22 3 (2-kanal)"); return
+        st[CH[c]["sk"]] = hs; _save_state(st); _say(chat, f"🕒 {CH[c]['name']} soatlari (Toshkent): {_hs(hs)}. Dreamy Earth"); return
+    if cmd == "/soni":
+        c = cn or 1
+        try: n = int(args[0]); assert 1 <= n <= 4
+        except Exception: _say(chat, "Kuniga nechta? 1 dan 4 gacha. Masalan: /soni1 2 (1-kanal), /soni2 1 (2-kanal)"); return
+        base_h = 7 if c == 1 else 22
+        hs = sorted({(base_h + i * 24 // n) % 24 for i in range(n)})
+        st[CH[c]["sk"]] = hs; _save_state(st); _say(chat, f"🔢 {CH[c]['name']}: kuniga {n} ta. Soatlar (Toshkent): {_hs(hs)}. Dreamy Earth"); return
+    if cmd in ("/status", "/start", "/holat"):
+        tgt = int(st.get("target", 1)) if int(st.get("target", 1)) in chs else 1
+        lines = [f"📊 {CH[c]['name']}: navbatda {len(pending(c))} ta | " + ("⏸ to'xtatilgan" if st.get(CH[c]["hold"]) else "▶️ yoqilgan") + f" | kuniga {len(_slots(c))} ta: {_hs(_slots(c))}" for c in chs]
+        _say(chat, "\n".join(lines) + f"\n📌 Yangi videolar: {CH[tgt]['name']} (/kanal)\nVaqt: Toshkent. Dreamy Earth"); return
+    if cmd in ("/yordam", "/help"):
+        _say(chat, "Buyruqlar:\n/status - holat va navbat\n/kanal 2 - videolar qaysi kanalga ketishi (1 yoki 2)\n/toxta, /davom - hammasini to'xtatish/yoqish (/toxta2 - faqat 2-kanal)\n"
+                   "/soni1 2 - 1-kanalga kuniga nechta (1-4), /soni2 1 - 2-kanal\n/soat1 7 19 - aniq soatlar (Toshkent vaqti), /soat2 22 3\n/stats - statistika\nVideoni shunchaki yuboring. Dreamy Earth"); return
+    if cmd == "/stats":
         try:
             from src import yt as _y
             import main as _m
             for c in (owner_targets() or [chat]): _say(c, stats_text(_y, _m._yt()))
         except Exception as e: _say(chat, "Statistikani olib bo'lmadi: " + str(e)[:100])
         return
-    cmd = txt.split()[0].split("@")[0].lower() if txt.startswith("/") else ""
-    args = txt.split()[1:]
-    if cmd == "/davom":
-        st["hold"] = False; _save_state(st); _say(chat, "▶️ Yuklash yoqildi, navbat bo'yicha davom etadi. Dreamy Earth"); return
-    if cmd == "/toxta":
-        st["hold"] = True; _save_state(st); _say(chat, "⏸ Yuklash to'xtatildi. Yoqish: /davom. Dreamy Earth"); return
-    if cmd == "/soat":
-        try:
-            hs = sorted({int(a) for a in args})
-            assert 1 <= len(hs) <= 4 and all(0 <= h <= 23 for h in hs)
-            for i, h in enumerate(hs):      # slots at least 5 h apart (also across midnight)
-                assert (hs[(i + 1) % len(hs)] - h) % 24 >= 5 or len(hs) == 1
-        except Exception:
-            _say(chat, "Soatlarni Toshkent vaqti bilan yozing, 1–4 ta, kamida 5 soat oralig'ida. Masalan: /soat 7 19"); return
-        st["slots"] = hs; _save_state(st)
-        _say(chat, "🕒 Yuklash soatlari (Toshkent): " + ", ".join(f"{h:02d}:00" for h in hs) + ". Dreamy Earth"); return
-    if cmd == "/soni":
-        try:
-            n = int(args[0]); assert 1 <= n <= 4
-        except Exception:
-            _say(chat, "Kuniga nechta? 1 dan 4 gacha. Masalan: /soni 2"); return
-        hs = sorted({(7 + i * 24 // n) % 24 for i in range(n)})
-        st["slots"] = hs; _save_state(st)
-        _say(chat, f"🔢 Kuniga {n} ta video. Soatlar (Toshkent): " + ", ".join(f"{h:02d}:00" for h in hs) + ". Dreamy Earth"); return
-    if cmd in ("/status", "/start", "/holat"):
-        hs = st.get("slots") or [7, 19]
-        _say(chat, f"📊 Navbatda: {len(pending())} ta video\n" + ("⏸ Holat: to'xtatilgan (/davom)\n" if st.get("hold") else "▶️ Holat: yoqilgan\n")
-             + f"🕒 Kuniga {len(hs)} ta: " + ", ".join(f"{h:02d}:00" for h in hs) + " (Toshkent)\nDreamy Earth"); return
-    if cmd in ("/yordam", "/help"):
-        _say(chat, "Buyruqlar:\n/status - holat va navbat\n/toxta - yuklashni to'xtatish\n/davom - yoqish\n/soni 2 - kuniga nechta video (1-4)\n"
-                   "/soat 7 19 - aniq soatlar (Toshkent vaqti)\n/stats - statistika\nVideoni shunchaki yuboring. Dreamy Earth"); return
     v = m.get("video") or (m.get("document") if str((m.get("document") or {}).get("mime_type", "")).startswith("video/") else None)
     if not v:
         _say(chat, "Video yuboring (izohga joy nomi). /status - navbat."); return
@@ -231,14 +243,15 @@ def _handle(m, log):
     notes = []
     if w and h and w > h: notes.append("gorizontal (Shorts bo'lmaydi)")
     if dur > 180: notes.append("180 soniyadan uzun (Shorts bo'lmaydi)")
-    base = f"{int(time.time())}_{v.get('file_unique_id', 'x')}"
+    tgt = int(st.get("target", 1)); tgt = tgt if (tgt in (1, 2) and ch_enabled(tgt)) else 1      # channel the owner chose with /kanal
+    base = f"{int(time.time())}_{v.get('file_unique_id', 'x')}" + ("_c2" if tgt == 2 else "")
     cap = clean_cap(m.get("caption"))   # downloader-bot signatures are not titles
     # empty caption -> the scene is described automatically at upload time
     _put_store(f"inbox/pending/{base}.json", json.dumps({"caption": cap, "added": time.time(), "file_id": v["file_id"], "size": v.get("file_size", 0)}).encode(), f"inbox meta {base}")
     try: _g = _api("getFile", file_id=v["file_id"]); log("INBOX getFile check at receive:", "ok" if (_g.get("result") or {}).get("file_path") else str(_g)[:150])
     except Exception as e: log("INBOX getFile check at receive failed:", str(e)[:100])
     log(f"INBOX: queued {base} ({v.get('file_size', 0) // 1024} KB) caption={cap[:40]!r}")
-    _say(chat, f"Qabul qilindi. Navbatda: {len(pending())} ta." + ("" if cap else " Sarlavhani o'zim topaman.") + (" Eslatma: " + ", ".join(notes) if notes else ""))
+    _say(chat, f"Qabul qilindi ({CH[tgt]['name']}). Navbatda: {len(pending(tgt))} ta." + ("" if cap else " Sarlavhani o'zim topaman.") + (" Eslatma: " + ", ".join(notes) if notes else ""))
 
 def poll_loop(log=print):
     if not _tok(): return
@@ -353,8 +366,8 @@ def flush_outbox(log=print):
         except Exception as e: log("INBOX outbox error:", str(e)[:120])
 
 # ---------- upload ----------
-def upload_next(yt_mod, access, log=print, work="out"):
-    items = pending()
+def upload_next(yt_mod, access, log=print, work="out", ch=1):
+    items = pending(ch)
     if not items: log("INBOX: empty, nothing to upload"); return False
     os.makedirs(work, exist_ok=True); path = f"{work}/inbox.mp4"
     fp = None
@@ -377,26 +390,28 @@ def upload_next(yt_mod, access, log=print, work="out"):
         open(path, "wb").write(_get_bytes(f"inbox/pending/{base}.mp4", STORE))
     cap = clean_cap(meta.get("caption")) or describe(path, log)
     log("INBOX caption used:", cap[:60])
-    recent = _state().get("titles", [])
+    recent = _state().get(CH[ch]["tkey"], [])
     scene = cap.partition("|")[0].strip() or "Beautiful nature scenery"
-    ai = ai_text(scene, recent, log)
+    ai = ai_text(scene, recent, log, CH[ch]["name"])
     log("INBOX title source:", "ai" if ai else "template")
-    title, desc, tags = make_meta(cap, ai)
-    path = brand(path, f"{work}/inbox_wm.mp4", log=log)
+    title, desc, tags = make_meta(cap, ai, ch)
+    path = brand(path, f"{work}/inbox_wm.mp4", text=CH[ch]["name"], log=log)
     try: vid, privacy = yt_mod.upload(access, path, title, desc, tags, synthetic=False)
     except RuntimeError as e:
         if "invalidTags" not in str(e) and "keywords" not in str(e): raise
         log("INBOX invalid tags, retrying with a short tag list"); vid, privacy = yt_mod.upload(access, path, title, desc, tags[:10], synthetic=False)
-    log("uploaded:", vid, "privacy:", privacy, "| title:", title, f"| inbox left: {len(items) - 1}")
-    try: st = _state(); st["titles"] = (st.get("titles", []) + [title])[-40:]; _save_state(st)
+    log(CH[ch]["log"], vid, "privacy:", privacy, "| title:", title, f"| inbox left: {len(items) - 1}")
+    try: st = _state(); st[CH[ch]["tkey"]] = (st.get(CH[ch]["tkey"], []) + [title])[-40:]; _save_state(st)
     except Exception as e: log("INBOX save titles failed:", str(e)[:80])
-    try:      # same video to Instagram Reels (the file is served publicly for a few minutes, then removed)
+    try:      # same video to Instagram Reels (first channel only)
+        if ch != 1: raise RuntimeError("instagram is linked to the first channel only")
         from . import igpost
         os.makedirs("out/ig", exist_ok=True); igf = f"out/ig/{vid}.mp4"; import shutil; shutil.copy(path, igf)
         base_url = os.environ.get("RENDER_EXTERNAL_URL", "https://yt-auto-shorts.onrender.com").rstrip("/")
         igpost.publish_reel(f"{base_url}/media/{vid}.mp4", title + "\n\nFollow @dreamyearthh for more beautiful places\n" +
                             "#nature #relaxing #calmnature #naturesounds #scenery #beautifulplaces #travel #reels #asmr #peaceful", log)
-    except Exception as e: log("IG failed (YouTube upload is fine):", str(e)[:200])
+    except Exception as e:
+        if ch == 1: log("IG failed (YouTube upload is fine):", str(e)[:200])
     finally:
         try: os.remove(f"out/ig/{vid}.mp4")
         except OSError: pass
@@ -405,6 +420,6 @@ def upload_next(yt_mod, access, log=print, work="out"):
         for f in _list("inbox/pending", STORE):
             if f["name"] == base + ".mp4": _delete(f"inbox/pending/{base}.mp4", f["sha"], STORE)
     try:
-        for c in channel_targets(): _say(c, f"\U0001F30D Dreamy Earth\n\u25B6\uFE0F YouTube'ga joylandi: {title}\nhttps://youtube.com/shorts/{vid}\nNavbatda qoldi: {len(items) - 1}")
+        for c in channel_targets(): _say(c, f"\U0001F30D Dreamy Earth | {CH[ch]['name']}\n\u25B6\uFE0F YouTube'ga joylandi: {title}\nhttps://youtube.com/shorts/{vid}\nNavbatda qoldi: {len(items) - 1}")
     except Exception: pass
     return True

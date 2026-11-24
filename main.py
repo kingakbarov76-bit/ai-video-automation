@@ -474,8 +474,10 @@ def inbox_slot_age(now=None, slots=None):
         age = (now - st).total_seconds() / 60
         if age < 90 and (best is None or age < best): best = age
     return best
+def _yt2():
+    return yt.access_token(env("GOOGLE_CLIENT_ID"), env("GOOGLE_CLIENT_SECRET"), os.environ["YT_REFRESH_TOKEN_2"].strip())
 def do_inbox(force=False):
-    """Auto-generated videos are OFF: upload the next video the owner sent through the Telegram bot, one per US-audience slot (max 5 per 24 h)."""
+    """Upload the next video the owner sent through the Telegram bot, per channel and per US-audience slot (YouTube quota: max 6 uploads/day in total)."""
     from src import inbox
     try: inbox.flush_outbox(log)
     except Exception as ex: log("INBOX outbox failed:", str(ex)[:150])
@@ -486,25 +488,40 @@ def do_inbox(force=False):
         try:
             if datetime.datetime.utcnow() < datetime.datetime.fromisoformat(pu.rstrip("Z")): log(f"SKIP: uploads paused until {pu} UTC"); return
         except ValueError: pass
-    try: _slots = [int(x) for x in (inbox._state().get("slots") or [])] or None      # set from the Telegram bot (/soat, /soni)
-    except Exception: _slots = None
-    age = inbox_slot_age(slots=_slots)
-    if force: age = 0.0
-    if age is None: log("SKIP: not an upload slot (slots Tashkent %s)" % (_slots or INBOX_SLOTS_T)); return
-    try:
-        if not force and time.time() - float(open("/tmp/last_upload_ts").read()) < age * 60: log("SKIP: this slot already uploaded (local guard)"); return
-    except (OSError, ValueError): pass
     if not inbox.pending():
         try: inbox.cleanup(log)
         except Exception as ex: log("INBOX cleanup failed:", str(ex)[:120])
         log("SKIP: inbox empty (waiting for videos from the owner)"); return
-    if inbox._state().get("hold"): log("SKIP: queue is on hold until the owner confirms the videos are his own/licensed (/davom)"); return
-    access = _yt()
+    st = inbox._state()
+    for ch in (1, 2):
+        if not inbox.ch_enabled(ch): continue
+        try: _inbox_channel(inbox, st, ch, force and ch == 1)
+        except Exception as ex: log(f"INBOX channel {ch} failed:", type(ex).__name__, str(ex)[:200])
+def _inbox_channel(inbox, st, ch, force):
+    C = inbox.CH[ch]
+    try: slots = [int(x) for x in (st.get(C["sk"]) or [])] or None      # set from the Telegram bot (/soat, /soni)
+    except Exception: slots = None
+    slots = slots or C["slots"]
+    age = inbox_slot_age(slots=slots)
+    if force: age = 0.0
+    if age is None: log(f"SKIP[{ch}]: not an upload slot (slots Tashkent {slots})"); return
+    guard = f"/tmp/last_upload_ts{'' if ch == 1 else ch}"
+    try:
+        if not force and time.time() - float(open(guard).read()) < age * 60: log(f"SKIP[{ch}]: this slot already uploaded (local guard)"); return
+    except (OSError, ValueError): pass
+    if not inbox.pending(ch): log(f"SKIP[{ch}]: no videos queued for {C['name']}"); return
+    if st.get(C["hold"]): log(f"SKIP[{ch}]: {C['name']} is stopped (/davom)"); return
+    access = _yt() if ch == 1 else _yt2()
     mins, n24 = yt.upload_stats(access)
-    if mins is not None and mins < age + (0 if force else 240): log(f"SKIP: this slot already uploaded ({mins:.0f} min ago)"); return
-    if n24 >= 6: log(f"SKIP: already {n24} uploads in last 24h (quota cap 6; the 3/day pace comes from the slots)"); return
-    if inbox.upload_next(yt, access, log):
-        try: open("/tmp/last_upload_ts", "w").write(str(time.time()))
+    if mins is not None and mins < age + (0 if force else 240): log(f"SKIP[{ch}]: this slot already uploaded ({mins:.0f} min ago)"); return
+    other = 0
+    if ch == 2: other = yt.upload_stats(_yt())[1] or 0
+    elif inbox.ch_enabled(2):
+        try: other = yt.upload_stats(_yt2())[1] or 0
+        except Exception: other = 0
+    if (n24 or 0) + other >= 6: log(f"SKIP[{ch}]: {(n24 or 0) + other} uploads in last 24h across both channels (YouTube quota allows ~6)"); return
+    if inbox.upload_next(yt, access, log, ch=ch):
+        try: open(guard, "w").write(str(time.time()))
         except OSError: pass
 import threading
 RUN_LOCK = threading.Lock()
