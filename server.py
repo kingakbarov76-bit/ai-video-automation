@@ -95,7 +95,17 @@ class H(BaseHTTPRequestHandler):
             return self.send("xato: " + json.dumps({k: j.get(k) for k in ("error", "error_description")}))
         self.send("not found", 404)
     def log_message(self, *a): pass
+def log_channels():
+    """Boot-time check: which YouTube channel each refresh token belongs to (titles only, no secrets)."""
+    for n, k in ((1, "YT_REFRESH_TOKEN"), (2, "YT_REFRESH_TOKEN_2")):
+        if not os.environ.get(k): continue
+        try:
+            a = job.yt.access_token(os.environ["GOOGLE_CLIENT_ID"], os.environ["GOOGLE_CLIENT_SECRET"], os.environ[k].strip())
+            r = requests.get("https://www.googleapis.com/youtube/v3/channels", headers={"Authorization": f"Bearer {a}"}, params={"part": "snippet", "mine": "true"}, timeout=30).json()
+            print(f"CHANNEL CHECK token {n}:", [(i["id"], i["snippet"]["title"]) for i in r.get("items", [])], flush=True)
+        except Exception as e: print(f"CHANNEL CHECK token {n} failed:", str(e)[:150], flush=True)
 if __name__ == "__main__":
+    threading.Thread(target=log_channels, daemon=True).start()
     # any wake-up (cron ping, deploy, visit) starts a run; the run itself skips if the slot is already done
     if os.environ.get("TG_BOT_TOKEN"):
         from src import inbox
