@@ -62,6 +62,7 @@ class H(BaseHTTPRequestHandler):
             except Exception as e: return self.send("xato: " + str(e)[:400])
         if u.path == "/run": return self.send(start("run"))
         if u.path == "/now": return self.send(start("now"))
+        if u.path == "/now2": return self.send(start("now2"))
         if u.path == "/check": return self.send(start("check"))
         if u.path == "/choose": return self.send(start("choose"))
         if u.path == "/analyze": return self.send(start("analyze"))

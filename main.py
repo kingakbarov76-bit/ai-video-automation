@@ -487,7 +487,7 @@ def inbox_slot_age(now=None, slots=None):
     return best
 def _yt2():
     return yt.access_token(env("GOOGLE_CLIENT_ID"), env("GOOGLE_CLIENT_SECRET"), os.environ["YT_REFRESH_TOKEN_2"].strip())
-def do_inbox(force=False):
+def do_inbox(force=False, only=None):
     """Upload the next video the owner sent through the Telegram bot, per channel and per US-audience slot (YouTube quota: max 6 uploads/day in total)."""
     from src import inbox
     try: inbox.flush_outbox(log)
@@ -505,8 +505,8 @@ def do_inbox(force=False):
         log("SKIP: inbox empty (waiting for videos from the owner)"); return
     st = inbox._state()
     for ch in (1, 2):
-        if not inbox.ch_enabled(ch): continue
-        try: _inbox_channel(inbox, st, ch, force and ch == 1)
+        if not inbox.ch_enabled(ch) or (only and ch != only): continue
+        try: _inbox_channel(inbox, st, ch, force and ch == (only or 1))
         except Exception as ex: log(f"INBOX channel {ch} failed:", type(ex).__name__, str(ex)[:200])
 def _inbox_channel(inbox, st, ch, force):
     C = inbox.CH[ch]
@@ -553,6 +553,7 @@ def _execute(mode="run"):
             log("ttstest result:", r, "peak child RSS MB:", resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss // 1024)
         elif mode == "brand": do_brand()
         elif mode == "now": do_inbox(force=True)
+        elif mode == "now2": do_inbox(force=True, only=2)
         elif mode in ("run", "long") and os.environ.get("ALLOW_GENERATED") != "1":
             do_inbox()
         else: main(mode)
