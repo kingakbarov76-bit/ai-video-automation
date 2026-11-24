@@ -56,9 +56,11 @@ def cleanup(log=print):
     st["last_clean"] = time.time(); _save_state(st); log("INBOX: store branch wiped", r.status_code)
 def pending(ch=None):
     """[(base_name, sha_json, None)] oldest first. Only a tiny json (Telegram file_id + caption) is stored: the video stays on Telegram's servers.
-    Videos for the second channel carry the suffix _c2 in their name; ch=None returns everything."""
+    Videos reserved for one channel carry the suffix _c1/_c2; ch=None returns everything."""
     r = [(f["name"][:-5], f["sha"], None) for f in sorted(_list("inbox/pending", STORE), key=lambda f: f["name"]) if f["name"].endswith(".json")]
-    return r if ch is None else [x for x in r if x[0].endswith("_c2") == (ch == 2)]
+    if ch is None: return r
+    # no suffix = shared queue (either channel takes the oldest one, each video is used once); _c1 / _c2 = reserved for that channel
+    return [x for x in r if x[0].endswith(f"_c{ch}") or not (x[0].endswith("_c1") or x[0].endswith("_c2"))]
 
 # ---------- metadata ----------
 def clean_cap(cap):
@@ -195,9 +197,10 @@ def _handle(m, log):
         for c in targets: st[CH[c]["hold"]] = off
         _save_state(st); _say(chat, ("⏸ To'xtatildi: " if off else "▶️ Yoqildi: ") + ", ".join(CH[c]["name"] for c in targets) + (". Yoqish: /davom" if off else "") + ". Dreamy Earth"); return
     if cmd == "/kanal":
-        try: n = int(args[0]); assert n in chs
-        except Exception: _say(chat, "Qaysi kanalga yuboramiz? /kanal 1 (Dreamy Earth)" + (" yoki /kanal 2 (Natural Wonders Now)" if 2 in chs else " (ikkinchi kanal hali ulanmagan)")); return
-        st["target"] = n; _save_state(st); _say(chat, f"📌 Endi yuborgan videolaringiz {CH[n]['name']} kanaliga ketadi. Dreamy Earth"); return
+        try: n = int(args[0]); assert n == 0 or n in chs
+        except Exception: _say(chat, "/kanal 0 - umumiy navbat (har bir kanal navbatdagi keyingi videoni oladi)\n/kanal 1 - faqat Dreamy Earth\n" + ("/kanal 2 - faqat Natural Wonders Now" if 2 in chs else "(ikkinchi kanal hali ulanmagan)")); return
+        st["target"] = n; _save_state(st)
+        _say(chat, "📌 Endi yuborgan videolaringiz: " + ("umumiy navbatga (ikkala kanal navbat bilan oladi)" if n == 0 else f"faqat {CH[n]['name']} kanaliga") + ". Dreamy Earth"); return
     if cmd == "/soat":
         c = cn or 1
         try:
@@ -214,11 +217,12 @@ def _handle(m, log):
         hs = sorted({(base_h + i * 24 // n) % 24 for i in range(n)})
         st[CH[c]["sk"]] = hs; _save_state(st); _say(chat, f"🔢 {CH[c]['name']}: kuniga {n} ta. Soatlar (Toshkent): {_hs(hs)}. Dreamy Earth"); return
     if cmd in ("/status", "/start", "/holat"):
-        tgt = int(st.get("target", 1)) if int(st.get("target", 1)) in chs else 1
-        lines = [f"📊 {CH[c]['name']}: navbatda {len(pending(c))} ta | " + ("⏸ to'xtatilgan" if st.get(CH[c]["hold"]) else "▶️ yoqilgan") + f" | kuniga {len(_slots(c))} ta: {_hs(_slots(c))}" for c in chs]
-        _say(chat, "\n".join(lines) + f"\n📌 Yangi videolar: {CH[tgt]['name']} (/kanal)\nVaqt: Toshkent. Dreamy Earth"); return
+        tg = int(st.get("target", 0)); tg = tg if (tg == 0 or tg in chs) else 0
+        lines = [f"📊 Navbatda jami: {len(pending())} ta video (umumiy: {len([x for x in pending() if not (x[0].endswith('_c1') or x[0].endswith('_c2'))])})"]
+        lines += [f"{CH[c]['name']}: " + ("⏸ to'xtatilgan" if st.get(CH[c]["hold"]) else "▶️ yoqilgan") + f" | kuniga {len(_slots(c))} ta: {_hs(_slots(c))}" for c in chs]
+        _say(chat, "\n".join(lines) + "\n📌 Yangi videolar: " + ("umumiy navbat" if tg == 0 else CH[tg]["name"]) + " (/kanal)\nVaqt: Toshkent. Dreamy Earth"); return
     if cmd in ("/yordam", "/help"):
-        _say(chat, "Buyruqlar:\n/status - holat va navbat\n/kanal 2 - videolar qaysi kanalga ketishi (1 yoki 2)\n/toxta, /davom - hammasini to'xtatish/yoqish (/toxta2 - faqat 2-kanal)\n"
+        _say(chat, "Buyruqlar:\n/status - holat va navbat\n/kanal 0 - umumiy navbat (odatiy), /kanal 1 yoki 2 - faqat shu kanal uchun\n/toxta, /davom - hammasini to'xtatish/yoqish (/toxta2 - faqat 2-kanal)\n"
                    "/soni1 2 - 1-kanalga kuniga nechta (1-4), /soni2 1 - 2-kanal\n/soat1 7 19 - aniq soatlar (Toshkent vaqti), /soat2 22 3\n/stats - statistika\nVideoni shunchaki yuboring. Dreamy Earth"); return
     if cmd == "/stats":
         try:
@@ -243,15 +247,15 @@ def _handle(m, log):
     notes = []
     if w and h and w > h: notes.append("gorizontal (Shorts bo'lmaydi)")
     if dur > 180: notes.append("180 soniyadan uzun (Shorts bo'lmaydi)")
-    tgt = int(st.get("target", 1)); tgt = tgt if (tgt in (1, 2) and ch_enabled(tgt)) else 1      # channel the owner chose with /kanal
-    base = f"{int(time.time())}_{v.get('file_unique_id', 'x')}" + ("_c2" if tgt == 2 else "")
+    tgt = int(st.get("target", 0)); tgt = tgt if (tgt in (1, 2) and ch_enabled(tgt)) else 0      # 0 = shared queue; 1/2 = reserved for that channel (/kanal)
+    base = f"{int(time.time())}_{v.get('file_unique_id', 'x')}" + (f"_c{tgt}" if tgt else "")
     cap = clean_cap(m.get("caption"))   # downloader-bot signatures are not titles
     # empty caption -> the scene is described automatically at upload time
     _put_store(f"inbox/pending/{base}.json", json.dumps({"caption": cap, "added": time.time(), "file_id": v["file_id"], "size": v.get("file_size", 0)}).encode(), f"inbox meta {base}")
     try: _g = _api("getFile", file_id=v["file_id"]); log("INBOX getFile check at receive:", "ok" if (_g.get("result") or {}).get("file_path") else str(_g)[:150])
     except Exception as e: log("INBOX getFile check at receive failed:", str(e)[:100])
     log(f"INBOX: queued {base} ({v.get('file_size', 0) // 1024} KB) caption={cap[:40]!r}")
-    _say(chat, f"Qabul qilindi ({CH[tgt]['name']}). Navbatda: {len(pending(tgt))} ta." + ("" if cap else " Sarlavhani o'zim topaman.") + (" Eslatma: " + ", ".join(notes) if notes else ""))
+    _say(chat, f"Qabul qilindi ({CH[tgt]['name'] if tgt else 'umumiy navbat'}). Navbatda jami: {len(pending())} ta." + ("" if cap else " Sarlavhani o'zim topaman.") + (" Eslatma: " + ", ".join(notes) if notes else ""))
 
 def poll_loop(log=print):
     if not _tok(): return
