@@ -394,54 +394,6 @@ def find_place(path, log=print):
         if sum(1 for m in names if m.lower() == n.lower()) >= 2: return n
     return ""
 
-HOOKS = ["Would you live here?", "Take a deep breath", "Where would you rather be?", "Rate this view 1-10", "Could you stay here forever?",
-         "Save this for a stressful day", "Imagine waking up here", "Your calm place for today"]
-def enhance(path, out, scene, log=print, target=20.0):
-    """Shorts-feed signals: the clip is looped to ~20 s (viewers stay longer), a question hook shows for the first 3.5 s (comments), and a soft
-    synthetic nature sound is added when the clip is silent. Returns out, or path on any failure."""
-    import subprocess, math
-    from PIL import Image, ImageDraw, ImageFont
-    try:
-        pr = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,width,height", "-show_entries", "format=duration", "-of", "json", path], capture_output=True, text=True)
-        j = json.loads(pr.stdout); d = float(j["format"]["duration"]); st = j["streams"]
-        has_a = any(x.get("codec_type") == "audio" for x in st)
-        v = next(x for x in st if x.get("codec_type") == "video"); w, h = int(v["width"]), int(v["height"])
-        if w > 1080: h = round(h * 1080 / w / 2) * 2; w = 1080
-        w -= w % 2; h -= h % 2
-        loops = max(0, math.ceil(target / max(d, 1)) - 1) if d < target - 2 else 0
-        total = min(max(d, target), 32.0) if loops else d
-        hook = HOOKS[int(time.time() // 3600) % len(HOOKS)]
-        fs = max(30, int(w * 0.068)); font = None
-        for fp in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"):
-            if os.path.exists(fp): font = ImageFont.truetype(fp, fs); break
-        font = font or ImageFont.load_default()
-        im = Image.new("RGBA", (w, h), (0, 0, 0, 0)); dr = ImageDraw.Draw(im)
-        lines, cur = [], ""
-        for wd in hook.split():
-            t = (cur + " " + wd).strip()
-            if dr.textlength(t, font=font) > w * 0.86 and cur: lines.append(cur); cur = wd
-            else: cur = t
-        lines.append(cur); y = int(h * 0.22)
-        for ln in lines:
-            x = int((w - dr.textlength(ln, font=font)) / 2)
-            dr.text((x + 3, y + 3), ln, font=font, fill=(0, 0, 0, 170)); dr.text((x, y), ln, font=font, fill=(255, 255, 255, 235)); y += int(fs * 1.3)
-        png = path + ".hook.png"; im.save(png)
-        cmd = ["ffmpeg", "-y", "-loglevel", "error"] + (["-stream_loop", str(loops)] if loops else []) + ["-i", path, "-i", png]
-        amap = ["-map", "0:a?"]
-        if not has_a:
-            from . import ambient
-            l = scene.lower()
-            kind = "ocean" if any(k in l for k in ("ocean", "sea", "wave", "beach", "coast")) else ambient.kind_for(l)
-            wav = path + ".amb.wav"; ambient.make_sound(wav, total + 1, kind, seed=int(time.time()) % 50)
-            cmd += ["-i", wav]; amap = ["-map", "2:a"]
-        cmd += ["-filter_complex", f"[0:v]scale={w}:{h}[b];[b][1:v]overlay=0:0:enable='between(t,0,3.5)',format=yuv420p[v]", "-map", "[v]"] + amap + \
-               ["-t", f"{total:.2f}", "-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-threads", "1", "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", out]
-        subprocess.run(cmd, check=True, timeout=600)
-        log(f"INBOX enhanced: {d:.0f}s -> {total:.0f}s, hook '{hook}', audio {'kept' if has_a else 'synthetic'}")
-        return out
-    except Exception as e:
-        log("INBOX enhance failed, using the original clip:", str(e)[:150]); return path
-
 # ---------- channel-name watermark ----------
 def brand(path, out, text="Dreamy Earth", log=print):
     """Burns a small semi-transparent channel name into the upper third (clear of the Shorts UI). Returns out, or path on failure."""
@@ -540,7 +492,6 @@ def upload_next(yt_mod, access, log=print, work="out", ch=1, access1=None):
     ai = ai_text(scene, recent, log, CH[ch]["name"], place)
     log("INBOX title source:", "ai" if ai else "template")
     title, desc, tags = make_meta(cap, ai, ch)
-    path = enhance(path, f"{work}/inbox_e.mp4", scene, log)
     path = brand(path, f"{work}/inbox_wm.mp4", text=CH[ch]["name"], log=log)
     try: vid, privacy = yt_mod.upload(access, path, title, desc, tags, synthetic=False)
     except RuntimeError as e:
