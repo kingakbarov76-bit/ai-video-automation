@@ -148,7 +148,7 @@ def _common_words(recent, n=8):
         for w in _sig(r): c[w] = c.get(w, 0) + 1
     return [w for w, k in sorted(c.items(), key=lambda x: -x[1])[:n] if k >= 2]
 
-def ai_text(scene, recent, log=print, chname="Dreamy Earth"):
+def ai_text(scene, recent, log=print, chname="Dreamy Earth", place=""):
     """Cloudflare Workers AI (free) writes a unique, search-oriented title + hashtags + tags for this scene. None on any failure."""
     acc, tok = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip()
     if not (acc and tok): return None
@@ -160,6 +160,7 @@ def ai_text(scene, recent, log=print, chname="Dreamy Earth"):
             prompt = (f'Scene of a nature video: "{scene}". You are a YouTube Shorts SEO expert for a calm nature channel called {chname}.\n'
                       f'Write ONE title (max 65 characters, English, simple everyday words people type in YouTube search, calming, exactly one emoji, no quotation marks; NO poetic words such as whisper, hush, gentle, serene, tranquil, ethereal, symphony, embrace). '
                       f'Style for this title: {angle}. Use only ONE or TWO plain keywords from the scene (if the scene text is generic, choose a plain keyword yourself, for example waterfall, forest, lake, mist, mountain, ocean, river, snow) and make the rest of the title fresh. '
+                      + (f'The video shows {place}: the title MUST contain the exact words "{place}". ' if place else '') +
                       f'The title must be NEW: do not reuse the words or structure of these recent titles: {json.dumps(recent[-15:])}. '
                       + (f'Avoid these overused words completely: {", ".join(banned)}. ' if banned else '') +
                       '\nAlso give 5 hashtags and 15 YouTube search tags (lowercase, 1-3 words each) specific to this exact scene (landscape, water, trees, animals, weather, place type), nothing generic.\n'
@@ -171,6 +172,7 @@ def ai_text(scene, recent, log=print, chname="Dreamy Earth"):
             d = txt if isinstance(txt, dict) else json.loads(re.search(r"\{.*\}", str(txt), re.S).group(0))      # Cloudflare may already return the JSON parsed
             title = re.sub(r"\s+", " ", str(d.get("title", "")).replace('"', "")).strip()
             if not (12 <= len(title) <= 70) or "utezbot" in title.lower(): continue
+            if place and place.lower() not in title.lower(): continue
             if set(re.findall(r"[a-z]+", title.lower())) & POETIC: log("INBOX title too poetic, retry:", title); continue
             if _too_similar(title, recent): log(f"INBOX title too similar, retry {attempt + 1}: {title}"); continue
             tags_h = []
@@ -366,6 +368,32 @@ def describe(path, log=print):
         except Exception as e: log(f"INBOX describe try {i + 1} failed:", str(e)[:120])
     return ""
 
+def find_place(path, log=print):
+    """Name of a WORLD-FAMOUS place only when 2 of 3 frames agree ('Lake Bled'), else ''. A wrong name is worse than none."""
+    import subprocess
+    acc, tok = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip()
+    if not (acc and tok): return ""
+    pr = ("Is this a world-famous landmark or well-known natural place that you recognize with certainty? "
+          "If yes, answer with only its name, like 'Horseshoe Bend' or 'Lake Bled'. If you are not sure, answer exactly: UNKNOWN")
+    try: d = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path], capture_output=True, text=True).stdout.strip() or 6)
+    except Exception: d = 6.0
+    names = []
+    for i, frac in enumerate((0.2, 0.5, 0.8)):
+        try:
+            jpg = path + f".p{i}.jpg"
+            subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{d * frac:.2f}", "-i", path, "-frames:v", "1", "-vf", "scale=448:-2", "-q:v", "4", jpg], check=True)
+            r = requests.post(f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/@cf/llava-hf/llava-1.5-7b-hf", headers={"Authorization": f"Bearer {tok}"}, timeout=120,
+                              json={"image": list(open(jpg, "rb").read()), "max_tokens": 16, "prompt": pr})
+            res = r.json().get("result") or {}
+            t = re.sub(r"[^A-Za-z' -]", " ", res.get("description") or res.get("response") or "").strip()
+            t = re.sub(r"\s+", " ", t)
+            if t and "unknown" not in t.lower() and "not sure" not in t.lower() and 1 <= len(t.split()) <= 4: names.append(t)
+        except Exception as e: log(f"INBOX place try {i + 1} failed:", str(e)[:100])
+    log("INBOX place guesses:", names)
+    for n in names:
+        if sum(1 for m in names if m.lower() == n.lower()) >= 2: return n
+    return ""
+
 # ---------- channel-name watermark ----------
 def brand(path, out, text="Dreamy Earth", log=print):
     """Burns a small semi-transparent channel name into the upper third (clear of the Shorts UI). Returns out, or path on failure."""
@@ -454,11 +482,14 @@ def upload_next(yt_mod, access, log=print, work="out", ch=1, access1=None):
         open(path, "wb").write(requests.get(f"{TG}/file/bot{_tok()}/{fp}", timeout=180).content)
     else:      # legacy item queued before the file_id change: the video itself is on the store branch
         open(path, "wb").write(_get_bytes(f"inbox/pending/{base}.mp4", STORE))
-    cap = clean_cap(meta.get("caption")) or describe(path, log)
+    own = clean_cap(meta.get("caption"))
+    cap = own or describe(path, log)
+    place = "" if own else find_place(path, log)
+    if place: log("INBOX place accepted:", place)
     log("INBOX caption used:", cap[:60])
     recent = _state().get(CH[ch]["tkey"], [])
     scene = cap.partition("|")[0].strip() or "Beautiful nature scenery"
-    ai = ai_text(scene, recent, log, CH[ch]["name"])
+    ai = ai_text(scene, recent, log, CH[ch]["name"], place)
     log("INBOX title source:", "ai" if ai else "template")
     title, desc, tags = make_meta(cap, ai, ch)
     path = brand(path, f"{work}/inbox_wm.mp4", text=CH[ch]["name"], log=log)
