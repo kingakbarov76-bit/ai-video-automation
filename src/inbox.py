@@ -286,7 +286,7 @@ def _handle(m, log):
         try:
             from src import yt as _y
             import main as _m
-            for c in (owner_targets() or [chat]): _say(c, stats_text(_y, _m._yt()))
+            for c in (owner_targets() or [chat]): _say(c, stats_text(_y, _m._yt()) + ("\n\n" + stats_text(_y, _m._yt2(), 2) if ch_enabled(2) else ""))
         except Exception as e: _say(chat, "Statistikani olib bo'lmadi: " + str(e)[:100])
         return
     v = m.get("video") or (m.get("document") if str((m.get("document") or {}).get("mime_type", "")).startswith("video/") else None)
@@ -391,13 +391,13 @@ def brand(path, out, text="Dreamy Earth", log=print):
         log("INBOX brand failed, uploading without watermark:", str(e)[:150]); return path
 
 # ---------- statistics report ----------
-def stats_text(yt_mod, access):
+def stats_text(yt_mod, access, ch=1):
     h = {"Authorization": f"Bearer {access}"}
     ch = requests.get("https://www.googleapis.com/youtube/v3/channels", headers=h, params={"part": "statistics", "mine": "true"}, timeout=30).json()["items"][0]["statistics"]
     vids = yt_mod.my_videos_stats(access, limit=50)
     vids.sort(key=lambda v: v["published"], reverse=True)
-    lines = [f"\U0001F30D Dreamy Earth\n\U0001F4CA YouTube statistikasi", f"Obunachilar: {ch.get('subscriberCount', '?')} | Jami ko'rish: {ch.get('viewCount', '?')} | Videolar: {ch.get('videoCount', '?')}",
-             f"Navbatda: {len(pending())} ta video", "", "So'nggi videolar:"]
+    lines = [f"\U0001F30D Dreamy Earth | {CH[ch]['name']}\n\U0001F4CA YouTube statistikasi", f"Obunachilar: {ch.get('subscriberCount', '?')} | Jami ko'rish: {ch.get('viewCount', '?')} | Videolar: {ch.get('videoCount', '?')}",
+             f"Navbatda: {len(pending(ch))} ta video", "", "So'nggi videolar:"]
     for v in vids[:6]:
         lines.append(f"- {v['title'][:45]}: {v['views']} ko'rish, {v['likes']} layk ({v['published'][5:10]})")
     top = sorted(vids, key=lambda v: v["views"], reverse=True)[:1]
@@ -407,12 +407,15 @@ def owner_targets():
     st = _state(); return [st["owner"]] if st.get("owner") else []
 def channel_targets():
     return [x.strip() for x in os.environ.get("TG_CHAT_IDS", "").split(",") if x.strip()]
-def maybe_report(yt_mod, access, log=print, every_h=20, force=False):
+def maybe_report(yt_mod, access, log=print, every_h=20, force=False, access2=None):
     """Once a day, at 09:00-09:59 Tashkent time."""
     st = _state()
     hour = (time.gmtime(time.time() + 5 * 3600)).tm_hour
     if not force and (hour != 9 or time.time() - st.get("last_report", 0) < every_h * 3600): return
     txt = stats_text(yt_mod, access)
+    if access2:
+        try: txt += "\n\n" + stats_text(yt_mod, access2, 2)
+        except Exception as e: log("INBOX stats ch2 failed:", str(e)[:100])
     for c in owner_targets(): _say(c, txt)
     st["last_report"] = time.time(); _save_state(st); log("INBOX: stats report sent")
 

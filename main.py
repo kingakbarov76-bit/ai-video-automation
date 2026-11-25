@@ -492,7 +492,7 @@ def do_inbox(force=False, only=None):
     from src import inbox
     try: inbox.flush_outbox(log)
     except Exception as ex: log("INBOX outbox failed:", str(ex)[:150])
-    try: inbox.maybe_report(yt, _yt(), log)          # statistics to the owner through the bot every ~8 h
+    try: inbox.maybe_report(yt, _yt(), log, access2=(_yt2() if inbox.ch_enabled(2) else None))          # statistics to the owner through the bot every ~8 h
     except Exception as ex: log("INBOX report failed:", str(ex)[:150])
     pu = os.environ.get("PAUSE_UNTIL", "").strip()      # e.g. 2026-11-24T16:00:00 (UTC): no uploads before this moment
     if pu and not force:
