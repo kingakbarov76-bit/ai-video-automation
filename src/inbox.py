@@ -391,13 +391,13 @@ def brand(path, out, text="Dreamy Earth", log=print):
         log("INBOX brand failed, uploading without watermark:", str(e)[:150]); return path
 
 # ---------- statistics report ----------
-def stats_text(yt_mod, access, ch=1):
+def stats_text(yt_mod, access, chn=1):
     h = {"Authorization": f"Bearer {access}"}
-    ch = requests.get("https://www.googleapis.com/youtube/v3/channels", headers=h, params={"part": "statistics", "mine": "true"}, timeout=30).json()["items"][0]["statistics"]
+    cs = requests.get("https://www.googleapis.com/youtube/v3/channels", headers=h, params={"part": "statistics", "mine": "true"}, timeout=30).json()["items"][0]["statistics"]
     vids = yt_mod.my_videos_stats(access, limit=50)
     vids.sort(key=lambda v: v["published"], reverse=True)
-    lines = [f"\U0001F30D Dreamy Earth | {CH[ch]['name']}\n\U0001F4CA YouTube statistikasi", f"Obunachilar: {ch.get('subscriberCount', '?')} | Jami ko'rish: {ch.get('viewCount', '?')} | Videolar: {ch.get('videoCount', '?')}",
-             f"Navbatda: {len(pending(ch))} ta video", "", "So'nggi videolar:"]
+    lines = [f"\U0001F30D Dreamy Earth | {CH[chn]['name']}\n\U0001F4CA YouTube statistikasi", f"Obunachilar: {cs.get('subscriberCount', '?')} | Jami ko'rish: {cs.get('viewCount', '?')} | Videolar: {cs.get('videoCount', '?')}",
+             f"Navbatda: {len(pending(chn))} ta video", "", "So'nggi videolar:"]
     for v in vids[:6]:
         lines.append(f"- {v['title'][:45]}: {v['views']} ko'rish, {v['likes']} layk ({v['published'][5:10]})")
     top = sorted(vids, key=lambda v: v["views"], reverse=True)[:1]
