@@ -339,13 +339,23 @@ def poll_loop(log=print):
             log("INBOX poll error:", str(e)[:100]); time.sleep(10)
 
 # ---------- automatic title from the picture (Cloudflare Workers AI vision, free tier) ----------
+VISION_MODEL = "@cf/moondream/moondream3.1-9B-A2B"      # llava-1.5-7b was retired by Cloudflare on 2026-11-20
+def _vision(acc, tok, jpg, question, max_tokens=24):
+    """Answer of the vision model about one JPEG frame; raises with the HTTP status so a failure is visible in the log."""
+    r = requests.post(f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/{VISION_MODEL}",
+                      headers={"Authorization": f"Bearer {tok}"}, timeout=120,
+                      json={"task": "query", "image": "data:image/jpeg;base64," + base64.b64encode(open(jpg, "rb").read()).decode(),
+                            "question": question, "reasoning": False, "max_tokens": max_tokens})
+    if r.status_code != 200: raise RuntimeError(f"vision HTTP {r.status_code}: {r.text[:200]}")
+    return (r.json().get("result") or {}).get("answer") or ""
+
 def describe(path, log=print):
     """3-5 word scene description of the video (e.g. 'turquoise waterfall in green forest') or '' on any failure (3 tries on different frames)."""
     import subprocess
     acc, tok = os.environ.get("CF_ACCOUNT_ID", "").strip(), os.environ.get("CF_API_TOKEN", "").strip()
     if not (acc and tok): return ""
-    prompts = ["Describe the main scenery of this photo in 3 to 5 words, like 'turquoise waterfall in green forest'. Answer with only those words, no punctuation, no sentence.",
-               "What landscape is this? Answer in 2 to 5 words, for example 'snowy mountain lake' or 'misty pine forest'.",
+    prompts = ["Describe the main scenery of this photo in 3 to 5 words. Answer with only those words, no punctuation, no sentence.",
+               "What landscape is this? Answer in 2 to 5 words.",
                "Name the nature scene in this picture in a few words (forest, waterfall, lake, mountain, ocean, river, field, snow, sunset)."]
     try:
         d = float(subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", path],
@@ -356,11 +366,7 @@ def describe(path, log=print):
             jpg = path + f".{i}.jpg"
             subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-ss", f"{d * frac:.2f}", "-i", path, "-frames:v", "1",
                             "-vf", "scale=448:-2", "-q:v", "4", jpg], check=True)
-            img = list(open(jpg, "rb").read())
-            r = requests.post(f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/@cf/llava-hf/llava-1.5-7b-hf",
-                              headers={"Authorization": f"Bearer {tok}"}, timeout=120, json={"image": img, "max_tokens": 24, "prompt": pr})
-            res = r.json().get("result") or {}
-            txt = res.get("description") or res.get("response") or ""
+            txt = _vision(acc, tok, jpg, pr)
             txt = re.sub(r"[^A-Za-z' -]", " ", txt).strip()
             txt = re.sub(r"^(a|an|the)\s+", "", re.sub(r"\s+", " ", txt), flags=re.I)
             if 1 <= len(txt.split()) <= 8 and len(txt) > 3: return txt[:1].upper() + txt[1:]
