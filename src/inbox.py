@@ -340,19 +340,33 @@ def poll_loop(log=print):
 
 # ---------- automatic title from the picture (Cloudflare Workers AI vision, free tier) ----------
 VISION_MODEL = "@cf/moondream/moondream3.1-9B-A2B"      # llava-1.5-7b was retired by Cloudflare on 2026-11-20
-def _vision(acc, tok, jpg, question, max_tokens=128):
-    """Answer of the vision model about one JPEG frame; raises (HTTP status or response body) so a failure is visible in the log."""
-    r = requests.post(f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/{VISION_MODEL}",
-                      headers={"Authorization": f"Bearer {tok}"}, timeout=120,
-                      json={"task": "query", "image": "data:image/jpeg;base64," + base64.b64encode(open(jpg, "rb").read()).decode(),
-                            "question": question, "reasoning": False, "max_tokens": max_tokens})
-    if r.status_code != 200: raise RuntimeError(f"vision HTTP {r.status_code}: {r.text[:200]}")
-    res = r.json().get("result") or {}
-    node = res
-    while isinstance(node, dict) and not node.get("answer") and isinstance(node.get("result"), dict): node = node["result"]      # the output may be nested once more
-    ans = (node.get("answer") or node.get("response") or node.get("description")) if isinstance(node, dict) else ""
-    if not ans: raise RuntimeError(f"vision empty answer: {json.dumps(res)[:300]}")
-    return ans
+VISION_FALLBACK = "@cf/google/gemma-4-26b-a4b-it"        # used when the first model gives no answer
+def _answer_text(node):
+    """The answer string wherever Workers AI put it: top level, under result/output (any depth), or chat 'choices'."""
+    if not isinstance(node, dict): return ""
+    for k in ("answer", "response", "description"):
+        if isinstance(node.get(k), str) and node[k].strip(): return node[k]
+    for c in node.get("choices") or []:
+        t = (c.get("message") or {}).get("content") if isinstance(c, dict) else None
+        if isinstance(t, str) and t.strip(): return t
+    return _answer_text(node.get("result")) or _answer_text(node.get("output"))
+def _vision(acc, tok, jpg, question):
+    """Answer of a vision model about one JPEG frame; raises (HTTP status and response body of every model) so a failure is visible in the log."""
+    uri = "data:image/jpeg;base64," + base64.b64encode(open(jpg, "rb").read()).decode()
+    calls = [(VISION_MODEL, {"task": "query", "image": uri, "question": question, "reasoning": False, "max_tokens": 128}),
+             (VISION_FALLBACK, {"messages": [{"role": "user", "content": [{"type": "text", "text": question}, {"type": "image_url", "image_url": {"url": uri}}]}],
+                                "max_tokens": 256, "chat_template_kwargs": {"enable_thinking": False}})]
+    errors = []
+    for model, body in calls:
+        name = model.rsplit("/", 1)[-1]
+        try:
+            r = requests.post(f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/{model}",
+                              headers={"Authorization": f"Bearer {tok}"}, timeout=120, json=body)
+            ans = _answer_text(r.json()) if r.status_code == 200 else ""
+            if ans: return ans
+            errors.append(f"{name} HTTP {r.status_code}: {r.text[:220]}")
+        except Exception as e: errors.append(f"{name}: {str(e)[:150]}")
+    raise RuntimeError("vision gave no answer | " + " | ".join(errors))
 
 def describe(path, log=print):
     """3-5 word scene description of the video (e.g. 'turquoise waterfall in green forest') or '' on any failure (3 tries on different frames)."""
@@ -374,9 +388,9 @@ def describe(path, log=print):
             txt = _vision(acc, tok, jpg, pr)
             txt = re.sub(r"[^A-Za-z' -]", " ", txt).strip()
             txt = re.sub(r"^(a|an|the)\s+", "", re.sub(r"\s+", " ", txt), flags=re.I)
-            if 1 <= len(txt.split()) <= 8 and len(txt) > 3: return txt[:1].upper() + txt[1:]
+            if 1 <= len(txt.split()) <= 8 and len(txt) > 3 and not re.search(r"\b(image|photo|picture|sorry|cannot|unable|provided|unknown)\b", txt, re.I): return txt[:1].upper() + txt[1:]
             log(f"INBOX describe try {i + 1}: unusable answer:", txt[:60])
-        except Exception as e: log(f"INBOX describe try {i + 1} failed:", str(e)[:340])
+        except Exception as e: log(f"INBOX describe try {i + 1} failed:", str(e)[:600])
     return ""
 
 def find_place(path, log=print):
