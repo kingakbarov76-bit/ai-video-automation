@@ -340,14 +340,19 @@ def poll_loop(log=print):
 
 # ---------- automatic title from the picture (Cloudflare Workers AI vision, free tier) ----------
 VISION_MODEL = "@cf/moondream/moondream3.1-9B-A2B"      # llava-1.5-7b was retired by Cloudflare on 2026-11-20
-def _vision(acc, tok, jpg, question, max_tokens=24):
-    """Answer of the vision model about one JPEG frame; raises with the HTTP status so a failure is visible in the log."""
+def _vision(acc, tok, jpg, question, max_tokens=128):
+    """Answer of the vision model about one JPEG frame; raises (HTTP status or response body) so a failure is visible in the log."""
     r = requests.post(f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/{VISION_MODEL}",
                       headers={"Authorization": f"Bearer {tok}"}, timeout=120,
                       json={"task": "query", "image": "data:image/jpeg;base64," + base64.b64encode(open(jpg, "rb").read()).decode(),
                             "question": question, "reasoning": False, "max_tokens": max_tokens})
     if r.status_code != 200: raise RuntimeError(f"vision HTTP {r.status_code}: {r.text[:200]}")
-    return (r.json().get("result") or {}).get("answer") or ""
+    res = r.json().get("result") or {}
+    node = res
+    while isinstance(node, dict) and not node.get("answer") and isinstance(node.get("result"), dict): node = node["result"]      # the output may be nested once more
+    ans = (node.get("answer") or node.get("response") or node.get("description")) if isinstance(node, dict) else ""
+    if not ans: raise RuntimeError(f"vision empty answer: {json.dumps(res)[:300]}")
+    return ans
 
 def describe(path, log=print):
     """3-5 word scene description of the video (e.g. 'turquoise waterfall in green forest') or '' on any failure (3 tries on different frames)."""
@@ -371,7 +376,7 @@ def describe(path, log=print):
             txt = re.sub(r"^(a|an|the)\s+", "", re.sub(r"\s+", " ", txt), flags=re.I)
             if 1 <= len(txt.split()) <= 8 and len(txt) > 3: return txt[:1].upper() + txt[1:]
             log(f"INBOX describe try {i + 1}: unusable answer:", txt[:60])
-        except Exception as e: log(f"INBOX describe try {i + 1} failed:", str(e)[:120])
+        except Exception as e: log(f"INBOX describe try {i + 1} failed:", str(e)[:340])
     return ""
 
 def find_place(path, log=print):
