@@ -130,7 +130,7 @@ STRONG_HASH = ["#naturesounds", "#nature", "#shorts", "#relaxingsounds", "#sleep
                "#natureambience", "#calmnature", "#asmr", "#relaxing", "#naturelovers", "#scenery"]
 
 ANGLES = ["a curious question to the viewer", "a time of day or season (dawn, dusk, midnight, autumn, winter)", "a feeling or benefit (calm, sleep, focus, escape)",
-          "a place type or imagined location (hidden valley, secret trail, remote lake)", "a number or duration (10 minutes of..., 1 hour of...)",
+          "a place type or imagined location (hidden valley, secret trail, remote lake)", "a surprising everyday detail of the scene (reflections, steam, ripples, wind in the trees)",
           "a short command to the viewer (Escape to..., Listen to..., Imagine...)", "what you would hear or smell there", "a bold statement about how beautiful it is"]
 POETIC = {"whisper", "whispers", "hush", "gentle", "serene", "serenity", "tranquil", "ethereal", "enchanting", "symphony", "embrace", "timeless", "silken", "velvet", "dreamy", "lullaby", "tapestry"}
 _STOP = {"the", "a", "an", "of", "in", "on", "to", "for", "and", "with", "at", "this", "that", "your", "you", "is", "here"}
@@ -173,6 +173,7 @@ def ai_text(scene, recent, log=print, chname="Dreamy Earth", place=""):
             title = re.sub(r"\s+", " ", str(d.get("title", "")).replace('"', "")).strip()
             if not (12 <= len(title) <= 70) or "utezbot" in title.lower(): continue
             if place and place.lower() not in title.lower(): continue
+            if re.search(r"\b\d+\s*(minutes?|mins?|hours?|hrs?)\b", title.lower()): log("INBOX title claims a duration, retry:", title); continue      # the clips last seconds: a false length is misleading
             if set(re.findall(r"[a-z]+", title.lower())) & POETIC: log("INBOX title too poetic, retry:", title); continue
             if _too_similar(title, recent): log(f"INBOX title too similar, retry {attempt + 1}: {title}"); continue
             tags_h = []
